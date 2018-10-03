@@ -1,0 +1,52 @@
+// 4 sprites generated with spritemate on 9/25/2018, 3:11:19 PM
+// Byte 64 of each sprite contains multicolor (high nibble) & color (low nibble) information
+
+LDA #$05 // sprite multicolor 1
+STA $D025
+LDA #$06 // sprite multicolor 2
+STA $D026
+
+
+// sprite 1 / multicolor / color: $0e
+sprite_1:
+.byte $00,$00,$00,$00,$c0,$03,$00,$f0
+.byte $03,$00,$ff,$ff,$00,$37,$df,$00
+.byte $3f,$fc,$00,$1e,$74,$00,$0f,$f0
+.byte $00,$13,$c4,$00,$07,$40,$00,$05
+.byte $43,$00,$07,$4f,$0f,$ff,$fc,$0f
+.byte $ff,$c0,$cf,$ff,$03,$cf,$ff,$ff
+.byte $cf,$ff,$fc,$cf,$c0,$30,$fc,$c0
+.byte $00,$0c,$c0,$00,$3c,$c0,$00,$8e
+
+// sprite 2 / multicolor / color: $0e
+sprite_2:
+.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
+.byte $ff,$00,$37,$df,$00,$3f,$fc,$00
+.byte $1c,$34,$00,$0f,$f0,$00,$13,$c4
+.byte $00,$07,$40,$00,$05,$43,$00,$07
+.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
+.byte $ff,$03,$cf,$ff,$cf,$cf,$ff,$ff
+.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
+.byte $00,$3c,$c0,$00,$33,$00,$00,$8e
+
+// sprite 3 / multicolor / color: $0e
+sprite_3:
+.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
+.byte $ff,$00,$37,$df,$00,$3f,$fc,$00
+.byte $1c,$34,$00,$0f,$f0,$00,$13,$c4
+.byte $00,$07,$40,$00,$05,$43,$00,$07
+.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
+.byte $ff,$00,$cf,$ff,$cf,$cf,$ff,$ff
+.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
+.byte $00,$3c,$c0,$00,$33,$00,$00,$8e
+
+// sprite 4 / multicolor / color: $0e
+sprite_4:
+.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
+.byte $ff,$00,$3b,$df,$00,$3f,$fc,$00
+.byte $1e,$b4,$00,$0f,$f0,$00,$13,$c4
+.byte $00,$07,$40,$00,$05,$43,$00,$07
+.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
+.byte $ff,$03,$cf,$ff,$ff,$cf,$ff,$fc
+.byte $cf,$c0,$30,$fc,$c0,$00,$0c,$c0
+.byte $00,$3c,$c0,$00,$30,$00,$00,$8e

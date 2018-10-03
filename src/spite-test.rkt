@@ -7,31 +7,45 @@
 (require threading)
 (require racket/string racket/list racket/file)
 (require racket/list)
-
-(struct sprite-data (frame-count colours data) #:transparent)
+(require "data.rkt")
+(struct sprite-data (frame-count data))
 
 (define (extract-sprite filename)
-  (let* ([lines (file->lines filename)]
+  (let* (;read file as a sequence of lines
+         [lines (file->lines filename)]
+         ;count the amount of frames by looking at lines that end with :
          [frames (length (filter (λ (s) (string-suffix? s ":")) lines))]
-         [colours (~>>
-                   lines
-                   (filter (λ (s) (string-prefix? s "// sprite")))
-                   (map (λ (s)
-                          (let* ([sl (string-length s)]
-                                 [start (- sl 2)])
-                            (substring s start))))
-                   (map (λ (s) (string->number s 16))))]          
-          
+
+         ;; [colours (~>>
+         ;;           lines
+         ;;           (filter (λ (s) (string-prefix? s "// sprite")))
+         ;;           (map (λ (s)
+         ;;                  (let* ([sl (string-length s)]
+         ;;                         [start (- sl 2)])
+         ;;                    (substring s start))))
+         ;;           (map (λ (s) (string->number s 16))))]
+         
+
+         ; extract the raw data as one big lump
          [data (~>>
                 lines
+                ; filter to .byte rows 
                 (filter (λ (s) (string-prefix? s ".byte")))
+                ; clean up text leaving raw hex values
                 (map (λ (s) (string-replace s ".byte " "")))
                 (map (λ (s) (string-replace s "$" "")))
                 (map (λ (s) (string-split s ",")))
+                ; flatten into one big list of numbers
                 (flatten)
+                ; parse hex 
                 (map (λ (s) (string->number s 16))))])
-    (sprite-data frames colours data)))
-         
+
+    (sprite-data frames data)))
+
+(define (load-psid filename)
+  (for ([b (drop (bytes->list (file->bytes filename)) (+ 2 $7c))])
+    (write-value b)))
+
 (define sprites
   (~>>
    (directory-list "..\\sprites" #:build? #t)
@@ -40,9 +54,23 @@
    (map extract-sprite)))
 
 (C64{
-             
-      *= $1000
-         
+     *= $1000
+    (load-psid "C:\\C64Music\\MUSICIANS\\A\\A-Man\\acid_disco.sid")
+
+
+    
+    (velocity-tables)
+    ; raw sprite data starts at $2000
+    *= $2000
+    (data
+     (~>>
+      sprites
+      (map sprite-data-data)
+      (flatten)))
+    
+    *= $3000
+
+      ;enable all sprites
       lda @$FF
       sta $d015
 
@@ -69,41 +97,56 @@
           sta (+ $d000 (+ 1 (* x 2))) ; y
         })
 
-:end-gen         
-         lda @$FF
-         sta $d01c 
-         lda @$04 ; sprite multicolor 1
-         sta $D025
-         lda @$06 ; sprite multicolor 2
-         sta $D026
+     ; turn on multicolour mode for all sprites
+     ;; lda @$FF
+     ;; sta $d01c 
+     lda @$04 ; sprite multicolor 1
+     sta $D025
+     lda @$06 ; sprite multicolor 2
+     sta $D026
 
-         lda @0
-         sta $d021
+ ;    jsr $1000
+     (define delay $5)
+     (define is-animating $58)
+     (define current-frame $60)
+     (define current-offset-lo $61)
+     (define current-offset-hi $62)
+     (define current-temp $63)
 
+     ; set background colour to black
+     lda @0
+     sta $d021
+     sta is-animating
 
-         (define delay $5)
-         lda @ delay
-         sta $42
+     lda @ delay
+     sta $42
 
+:loop
+; wait for the raster to hit the bottom of the screen
+;break
+     lda $d012
+     cmp @$ff
+     bne loop-
+     jsr $1003
+     lda is-animating
+     beq joy+
+     jsr table-test+
+     jmp skip-joy+
+     :joy
+     jsr check-joy:
+     :skip-joy
+     ; decrease our delay by one
+     ldx $42
+     dex
+     ; if it is zero, branch out
+     beq change+
+     ; otherwise store the new value and go back to waiting
+     stx $42
+     jmp loop-
+:change
 
-         :loop
-         lda $d012
-         cmp @$ff
-         bne loop-
-         jsr check-joy:
-         ldx $42
-         dex
-         beq change+
-         stx $42
-         jmp loop-
-:change         
          ldx @ delay
          stx $42
-         ;dont change unless some movement
-         ;; lda $dc00
-         ;; and @%00011111
-         ;; cmp @%00011111
-         ;; beq loop-
 
          (for/fold ([base-offset $80]
                     [index 0]
@@ -111,15 +154,20 @@
                    ([ s sprites])
            (let ([new-code
                   {
-                   ldx (+ $07f8 index) ;current sprite pointer
+                   ;load sprite pointer value
+                   ldx (+ $07f8 index)
+                   ;is it on the final frame?    
                    cpx @(+ base-offset (- (sprite-data-frame-count s) 1))
                    bne skip+
+                   ;reset to its first frame
                    ldx @base-offset
                    stx (+ $07f8 index)
+                   jmp done+
                    :skip
+                   ; move to next frame
                    inx
                    stx (+ $07f8 index)
-                   
+                   :done                   
                    }])
              (values (+ base-offset (sprite-data-frame-count s))
                      (+ 1 index)
@@ -128,14 +176,25 @@
          jmp loop-
 
 :check-joy
-         ldy @2   ;move amount
-         sty $45
-         lda $dc00
-         tax
-         and @%00010000  ; fire
-         bne next+
-         ldy @4
-         sty $45
+     ldy @2   ;move amount
+     sty $45
+     lda $dc00
+     tax
+     and @%00010000  ; fire
+     bne next+
+     lda @1
+     ;clear animation params
+     sta is-animating
+     lda @$40
+     sta current-offset-hi
+     lda @0
+     sta current-offset-lo
+     lda @1
+     sta current-frame
+
+         rts
+         ;; ldy @4
+         ;; sty $45
 :next         
          txa 
          and @%00000001  ;up
@@ -172,12 +231,62 @@
 :done         
          rts
 
-;;// sprite 1 / multicolor / color: $0e
-*= $2000
-(data
- (~>>
-  sprites
-  (map sprite-data-data)
-  (flatten)))
+
+:table-test
+;     break
+     ldy @0
+     ; x delta appears at the first byte
+     lda £ current-offset-lo y
+     ; move sprite x. check sign bit
+     tax
+     and @%10000000
+     beq add+
+     ; is negative, invert bits and sub
+     txa
+     eor @$ff
+     sta current-temp
+     lda $d000
+     sec
+     sbc current-temp
+     sta $d000     
+     jmp y+
+:add    
+     clc
+     txa
+     adc $d000
+     sta $d000
+:y
+     
+     ; load y delta
+     ldy current-frame
+     lda £ current-offset-lo y
+     tax
+     and @%10000000
+     beq add+
+     ; is negative, invert bits and sub
+     txa
+     eor @$ff
+     sta current-temp
+     lda $d001
+     sec
+     sbc current-temp
+     sta $d001     
+     jmp end+
+:add     
+     clc
+     txa
+     adc $d001
+     sta $d001
+     :end
+     clc
+     lda current-frame
+     adc @1
+     bmi done+
+     sta current-frame
+     rts
+:done
+     lda @0
+     sta is-animating
+     rts
 
  })

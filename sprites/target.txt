@@ -1,0 +1,20 @@
+
+// 1 sprites generated with spritemate on 10/3/2018, 9:59:13 PM
+// Byte 64 of each sprite contains multicolor (high nibble) & color (low nibble) information
+
+LDA #$08 // sprite multicolor 1
+STA $D025
+LDA #$06 // sprite multicolor 2
+STA $D026
+
+
+// sprite 1 / multicolor / color: $04
+sprite_1:
+.byte $00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$00,$00,$00,$00,$00,$00,$00
+.byte $28,$00,$00,$28,$00,$00,$aa,$00
+.byte $00,$aa,$00,$00,$28,$00,$00,$28
+.byte $00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$00,$00,$00,$00,$00,$00,$00
+.byte $00,$00,$00,$00,$00,$00,$00,$84
