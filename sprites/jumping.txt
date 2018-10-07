@@ -1,4 +1,5 @@
-// 4 sprites generated with spritemate on 9/25/2018, 3:11:19 PM
+
+// 8 sprites generated with spritemate on 10/7/2018, 2:43:34 PM
 // Byte 64 of each sprite contains multicolor (high nibble) & color (low nibble) information
 
 LDA #$05 // sprite multicolor 1
@@ -9,44 +10,88 @@ STA $D026
 
 // sprite 1 / multicolor / color: $0e
 sprite_1:
-.byte $00,$00,$00,$00,$c0,$03,$00,$f0
-.byte $03,$00,$ff,$ff,$00,$37,$df,$00
-.byte $3f,$fc,$00,$1e,$74,$00,$0f,$f0
-.byte $00,$13,$c4,$00,$07,$40,$00,$05
-.byte $43,$00,$07,$4f,$0f,$ff,$fc,$0f
-.byte $ff,$c0,$cf,$ff,$03,$cf,$ff,$ff
-.byte $cf,$ff,$fc,$cf,$c0,$30,$fc,$c0
-.byte $00,$0c,$c0,$00,$3c,$c0,$00,$8e
-
-// sprite 2 / multicolor / color: $0e
-sprite_2:
 .byte $00,$c0,$03,$00,$f0,$03,$00,$ff
 .byte $ff,$00,$37,$df,$00,$3f,$fc,$00
-.byte $1c,$34,$00,$0f,$f0,$00,$13,$c4
-.byte $00,$07,$40,$00,$05,$43,$00,$07
-.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
-.byte $ff,$03,$cf,$ff,$cf,$cf,$ff,$ff
-.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
-.byte $00,$3c,$c0,$00,$33,$00,$00,$8e
-
-// sprite 3 / multicolor / color: $0e
-sprite_3:
-.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
-.byte $ff,$00,$37,$df,$00,$3f,$fc,$00
-.byte $1c,$34,$00,$0f,$f0,$00,$13,$c4
-.byte $00,$07,$40,$00,$05,$43,$00,$07
-.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
-.byte $ff,$00,$cf,$ff,$cf,$cf,$ff,$ff
-.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
-.byte $00,$3c,$c0,$00,$33,$00,$00,$8e
-
-// sprite 4 / multicolor / color: $0e
-sprite_4:
-.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
-.byte $ff,$00,$3b,$df,$00,$3f,$fc,$00
-.byte $1e,$b4,$00,$0f,$f0,$00,$13,$c4
+.byte $1e,$74,$00,$0f,$f0,$00,$13,$c4
 .byte $00,$07,$40,$00,$05,$43,$00,$07
 .byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
 .byte $ff,$03,$cf,$ff,$ff,$cf,$ff,$fc
-.byte $cf,$c0,$30,$fc,$c0,$00,$0c,$c0
-.byte $00,$3c,$c0,$00,$30,$00,$00,$8e
+.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
+.byte $00,$3c,$c0,$00,$30,$f0,$00,$8e
+
+// sprite 2 / multicolor / color: $0e
+sprite_2:
+.byte $fc,$00,$3c,$3c,$00,$30,$3c,$00
+.byte $f0,$0f,$00,$c0,$0f,$c3,$c0,$0c
+.byte $c3,$00,$0d,$f3,$0f,$0f,$d1,$3c
+.byte $0f,$d1,$30,$0c,$f7,$c0,$0d,$dd
+.byte $00,$3f,$dd,$00,$fc,$3f,$00,$c0
+.byte $3f,$00,$00,$3f,$00,$00,$3f,$00
+.byte $00,$3f,$00,$00,$3f,$cf,$00,$3f
+.byte $cc,$0c,$3f,$fc,$0f,$f0,$00,$8e
+
+// sprite 3 / multicolor / color: $0e
+sprite_3:
+.byte $fc,$00,$3c,$3c,$00,$30,$3c,$00
+.byte $f0,$0f,$00,$c0,$0f,$c3,$c0,$0d
+.byte $c3,$00,$0c,$f3,$0f,$0f,$d1,$3c
+.byte $0f,$d1,$30,$0d,$f7,$c0,$0c,$dd
+.byte $00,$3f,$dd,$00,$fc,$3f,$00,$c0
+.byte $3f,$00,$00,$3f,$00,$00,$3f,$00
+.byte $00,$3f,$00,$00,$3f,$cf,$00,$3f
+.byte $cc,$0c,$3f,$fc,$0f,$f0,$00,$8e
+
+// sprite 4 / multicolor / color: $0e
+sprite_4:
+.byte $33,$00,$00,$3c,$c0,$00,$0c,$c0
+.byte $00,$fc,$c0,$00,$cf,$c0,$00,$cf
+.byte $ff,$ff,$cf,$ff,$cf,$cf,$ff,$00
+.byte $0f,$ff,$c0,$0f,$ff,$fc,$00,$07
+.byte $4f,$00,$05,$43,$00,$07,$40,$00
+.byte $13,$c4,$00,$0f,$f0,$00,$1c,$34
+.byte $00,$3f,$fc,$00,$37,$df,$00,$ff
+.byte $ff,$00,$f0,$03,$00,$c0,$03,$8e
+
+// sprite 5 / multicolor / color: $0e
+sprite_5:
+.byte $33,$00,$00,$3c,$c0,$00,$0c,$c0
+.byte $00,$fc,$c0,$00,$cf,$c0,$00,$cf
+.byte $ff,$ff,$cf,$ff,$cf,$cf,$ff,$00
+.byte $0f,$ff,$c0,$0f,$ff,$fc,$00,$07
+.byte $4f,$00,$05,$43,$00,$07,$40,$00
+.byte $13,$c4,$00,$0f,$f0,$00,$1c,$34
+.byte $00,$3b,$ec,$00,$33,$cf,$00,$ff
+.byte $ff,$00,$f0,$03,$00,$c0,$03,$8e
+
+// sprite 6 / multicolor / color: $0e
+sprite_6:
+.byte $3c,$00,$3f,$0c,$00,$3c,$0f,$00
+.byte $3c,$03,$00,$f0,$03,$c3,$f0,$00
+.byte $c3,$70,$f0,$cf,$30,$3c,$47,$f0
+.byte $0c,$47,$f0,$03,$df,$70,$00,$77
+.byte $30,$00,$77,$fc,$00,$fc,$3f,$00
+.byte $fc,$03,$00,$fc,$00,$00,$fc,$00
+.byte $00,$fc,$00,$f3,$fc,$00,$33,$fc
+.byte $00,$3f,$fc,$30,$00,$0f,$f0,$8e
+
+// sprite 7 / multicolor / color: $0e
+sprite_7:
+.byte $3c,$00,$3f,$0c,$00,$3c,$0f,$00
+.byte $3c,$03,$00,$f0,$03,$c3,$30,$00
+.byte $c3,$70,$f0,$cf,$f0,$3c,$77,$f0
+.byte $0c,$77,$30,$03,$df,$70,$00,$77
+.byte $f0,$00,$77,$fc,$00,$fc,$3f,$00
+.byte $fc,$03,$00,$fc,$00,$00,$fc,$00
+.byte $00,$fc,$00,$f3,$fc,$00,$33,$fc
+.byte $00,$3f,$fc,$30,$00,$0f,$f0,$8e
+
+// sprite 8 / multicolor / color: $0e
+sprite_8:
+.byte $00,$c0,$03,$00,$f0,$03,$00,$ff
+.byte $ff,$00,$37,$df,$00,$3f,$fc,$00
+.byte $1c,$74,$00,$0f,$f0,$00,$13,$c4
+.byte $00,$07,$40,$00,$05,$43,$00,$07
+.byte $4f,$0f,$ff,$fc,$0f,$ff,$c0,$cf
+.byte $ff,$03,$cf,$ff,$ff,$cf,$ff,$fc
+.byte $cf,$c0,$00,$fc,$c0,$00,$0c,$c0
+.byte $00,$fc,$c0,$00,$c3,$c0,$00,$8e
