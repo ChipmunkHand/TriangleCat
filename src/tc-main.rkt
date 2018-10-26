@@ -11,112 +11,22 @@
  racket/list
  racket/file)
 
+(require "psid.rkt" "spritemate.rkt")
 (require (for-syntax syntax/parse))
-
-(require "data.rkt")
-
-(struct sprite-data
-  (frame-count   
-   start-address  ; raw data location
-   start-offset   ; sprite pointer offset 
-   end-offset     ; final frame
-   colours        ; multicolours   
-   data           ; actual data
-   )  #:transparent)
-
-(define (extract-sprite filename start-address start-offset)
-  (let* (;read file as a sequence of lines
-         [lines (file->lines filename)]
-         ;count the amount of frames by looking at lines that end with :
-         [frames (length (filter (λ (s) (string-suffix? s ":")) lines))]
-         [colours (~>>
-                   lines
-                   (filter (λ (s) (string-prefix? s "// sprite")))
-                   (map (λ (s)
-                          (let* ([sl (string-length s)]
-                                 [start (- sl 2)])
-                            (substring s start))))
-                   (map (λ (s) (string->number s 16))))]
-         
-
-         ; extract the raw data as one big lump
-         [data (~>>
-                lines
-                ; filter to .byte rows 
-                (filter (λ (s) (string-prefix? s ".byte")))
-                ; clean up text leaving raw hex values
-                (map (λ (s) (string-replace s ".byte " "")))
-                (map (λ (s) (string-replace s "$" "")))
-                (map (λ (s) (string-split s ",")))
-                ; flatten into one big list of numbers
-                (flatten)
-                ; parse hex 
-                (map (λ (s) (string->number s 16))))])
-
-    (sprite-data frames
-                 start-address
-                 start-offset
-                 (+ start-offset (- frames 1))
-                 colours
-                 data)))
-
-(define sprites
-  (let ([files
-         (~>>
-          (directory-list "..\\sprites" #:build? #t)
-          (map path->string)
-          (filter (λ (s) (string-suffix? s ".txt"))))])
-    (match-let-values
-        ([(_ _ sprites)
-          (for/fold ([address $2000]
-                     [offset $80]
-                     [sprites (list)])
-                    ([filename files])
-            (let
-                ([short-name  ; extract file name (probably a nicer way to do this)
-                  (~>
-                   filename
-                   (string-split "\\")
-                   reverse
-                   first
-                   (string-replace ".txt" ""))]
-                 [sprite (extract-sprite filename address offset)])
-              ; build sprite data folding though the addresses and offsets for later use
-              (values (+ address (* (sprite-data-frame-count sprite) $40))
-                      (+ offset (sprite-data-frame-count sprite))
-                      (cons (cons short-name sprite) sprites))))])
-      ; hash by sprite name
-      (make-hash sprites))))
         
-
-(define (load-psid filename)
-  (for ([b
-         (~>
-          filename
-          file->bytes
-          bytes->list
-          (drop (+ 2 $7c)))])
-    (write-value b)))
-   
-;; (hash-for-each sprites
-;;   (λ (key sprite)
-;;     (begin
-;;       (writeln (format "fn:~a" key))
-;;       (writeln (format "frames:~a" (sprite-data-frame-count sprite)))
-;;       (writeln (format "address:~x" (sprite-data-start-address sprite)))
-;;       (writeln (format "start:~x" (sprite-data-start-offset sprite))))))
-
-(define (get-sprite-start name)
-  (~>
-   sprites
-   (hash-ref name)
-   sprite-data-start-offset))
-
-(define (get-sprite-end name)
-  (~>
-   sprites
-   (hash-ref name)
-   sprite-data-end-offset))
+(define (zp-generator exceptions)
+  (let* ([next-addr $ff]
+         ;whitelist of addresses to not use
+         [kernal (list $a0 $a1 $a2)]
+         [exceptions (remove-duplicates (append exceptions kernal))])
+    (λ ()
+      (define (aux)
+        (let ([addr next-addr])
+          (set! next-addr (- next-addr 1))
+          (if (set-member? exceptions addr)
+              (aux)
+              addr)))
+      (aux))))
 
 (define (clear-mem start character)
   {	ldx @0
@@ -125,7 +35,7 @@
            {sta (+ start (* i $100)) x})
        	dex
         bne loop- })
-
+    
 (define-syntax-parser joy-branch
   [(_ #t) #'{bne skip+}] 
   [(_ #f) #'{beq skip+}])
@@ -173,7 +83,7 @@
           (map (λ (n) (format "state~a" n)))
           (map (λ (n) (find-closest-label n (here) '-)))))
 
-        (data 0 0 )
+;        (data 0 0 )
         :state-machine-lo
         (write-values (map lo-byte jump-labels))
         
@@ -184,6 +94,7 @@
         :jump-vector-hi (data $FF)
 
         }])
+
 
 ;some constants
 {
@@ -215,42 +126,52 @@
 
   angle-change-delay = $4
   vel-change-delay = $14
-  
-  ; ZP addresses
 
+  (define-syntax-parser zp
+  [(_ name ...)
+   #'{ (begin
+         (define name (new-zp))
+         (printf "~a = $~x\n" 'name name)
+         ) ...}])
+
+  acid-disco = (load-psid "C:\\C64Music\\MUSICIANS\\A\\A-Man\\acid_disco.sid")    
+  new-zp = (zp-generator (psid-header-zp acid-disco))
+
+  ; ZP addresses
+  ; ---------------------------
   ;screen lookup pointer addresses
-  screen-lo = $B0
-  screen-hi = $B1
-  
-  ; tc stuff
-  tc-falling = $A4
-  tc-vel-change-delay = $A5
-  tc-angle-change-delay = $A6
-  tc-table-frame = $A7
-  tc-temp = $A8
-  tc-vel = $A9
-  tc-angle-target = $Aa; where the target is pointing in crouch
-  tc-traj-lo = $Ab     ; pointers into trajectory tables
-  tc-traj-hi = $Ac
-  tc-anim-delay = $Ad
-  tc-frame = $Ae
-  tc-state = $Af
+  (zp
+   screen-hi
+   screen-lo
+   tc-angle-vxi
+   tc-angle-vxf 
+   tc-angle-vyi 
+   tc-angle-vyf 
+   tc-falling 
+   tc-vel-change-delay 
+   tc-angle-change-delay 
+   tc-table-frame 
+   tc-temp 
+   tc-vel 
+   tc-angle-target 
+   tc-anim-delay 
+   tc-frame ; tc stuff
+   tc-state)
   
   
 }
 
 (C64{
-     (velocity-tables) ; from data.rkt
-     (hash-for-each sprites
-      (λ (_ sprite)
-        (begin
-          (set-location (sprite-data-start-address sprite))
-          (data (sprite-data-data sprite)))))
+
+   (hash-for-each sprites
+    (λ (_ sprite)
+      (begin
+        (set-location (sprite-data-start-address sprite))
+        (data (sprite-data-data sprite)))))
 
 ;music 
-*= $1000
-     (load-psid "C:\\C64Music\\MUSICIANS\\A\\A-Man\\acid_disco.sid")    
 
+     
 *= $3800
    (data
     ; 0
@@ -311,89 +232,96 @@
     )
 ; main program    
 *= $3000
-     (clear-mem $0400 32)
+   (clear-mem $0400 32)
 ;enable sprite 1
 ;break
-     lda @%00000001
-     sta $d015
-;     lda @$35   ; turn off the BASIC and KERNAL
-;     sta $01    
+   lda @%00000001
+   sta $d015
+   ;     lda @$35   ; turn off the BASIC and KERNAL
+   ;     sta $01    
 
-     lda @(get-sprite-start "standing")      
-     sta $07f8
-     sta tc-frame
-     lda @state-standing
-     sta tc-state
+   lda @(get-sprite-start "standing")      
+   sta $07f8
+   sta tc-frame
+   lda @state-standing
+   sta tc-state
 
-     lda @4
-     sta tc-angle-target
-     lda @3     
-     sta tc-vel
-     lda @(get-sprite-start "target")      
-     sta $07f9     
+   lda @54
+   sta tc-angle-target
+   lda @3     
+   sta tc-vel
+   lda @(get-sprite-start "target")      
+   sta $07f9     
 
-     ; chars at $3800
-     lda $d018
-     ora @%00001110
-     sta $d018
+   ; chars at $3800
+   lda $d018
+   ora @%00001110
+   sta $d018
 
-     ;; lda @$ff
-     ;; sta $3801
-     ;; sta $3802
-     ;; sta $3803
-     ;; sta $3804
-     ;; sta $3805
-     ;; sta $3806
-     ;; sta $3807
+   ;; lda @$ff
+   ;; sta $3801
+   ;; sta $3802
+   ;; sta $3803
+   ;; sta $3804
+   ;; sta $3805
+   ;; sta $3806
+   ;; sta $3807
 
 
-     lda @5
-     sta $690
-     sta $691
-     sta $692
-     sta $693
-     sta $694
-     sta $695
-     
-     sta $540
-     sta $541
-     sta $542
-     sta $543
-     sta $544
-     sta $545
-     
-     ;position sprites
-     (for ([x (in-range 8)])
-       {
-        lda @(+ $1F (* x 24))
-        sta (+ $d000 (* x 2))  ; x
-        lda @$D0
-        sta (+ $d000 (+ 1 (* x 2))) ; y
+   lda @5
+   sta $690
+   sta $691
+   sta $692
+   sta $693
+   sta $694
+   sta $695
+   
+   sta $540
+   sta $541
+   sta $542
+   sta $543
+   sta $544
+   sta $545
+   
+   ;position sprites
+   (for ([x (in-range 8)])
+     {
+      lda @(+ $1F (* x 24))
+      sta (+ $d000 (* x 2))  ; x
+      lda @$D0
+      sta (+ $d000 (+ 1 (* x 2))) ; y
        })
 
-     ; turn on multicolour mode for all sprites
-     lda @$FF
-     sta $d01c
+   ; turn on multicolour mode for all sprites
+   lda @$FF
+   sta $d01c
 
-     lda @$04 ; sprite multicolor 1
-     sta $D025
-     lda @$06 ; sprite multicolor 2
-     sta $D026
+   lda @$04 ; sprite multicolor 1
+   sta $D025
+   lda @$06 ; sprite multicolor 2
+   sta $D026
 
-     lda @angle-change-delay
-     sta tc-angle-change-delay
-     lda @vel-change-delay
-     sta tc-vel-change-delay
-     
-     lda @0
-     sta $d01b  ; sprites in front of chars
-     
-     sta $d021
-     sta $d020
-;break
+   lda @angle-change-delay
+   sta tc-angle-change-delay
+   lda @vel-change-delay
+   sta tc-vel-change-delay
+   
+   lda @0
+   sta $d01b  ; sprites in front of chars
+   
+   sta $d021
+   sta $d020
+
+
+   sta tc-angle-vxi
+   sta tc-angle-vxf
+   sta tc-angle-vyi
+   sta tc-angle-vyf
+   
+break
 ;     lda @%00000001
 ;     sta $d010
-     jsr $1000  ; init music
+     (init-psid acid-disco)
 
 :loop
      ; wait for the raster to hit the bottom of the screen
@@ -402,7 +330,7 @@
      bne loop-
      ; music
      inc $d020
-     ;jsr $1003
+     (play-psid acid-disco)
      jsr update+
      jsr animate+
      dec $d020
@@ -470,26 +398,89 @@
      
      
 :update-target
-     ;;pace the target above the cat depending on its value
+     ;;place the target above the cat depending on its value
      ;todo: copy d010 x-bit
+     lda @0
+     sta tc-angle-vxi
+     sta tc-angle-vxf
+     sta tc-angle-vyi
+     sta tc-angle-vyf
+;break
      ldx tc-angle-target
-     cpx @5
-     bcs pos+
-     ; < 5 means we subtract the x
+     lda cosine+ x
+     ; vx = velocity (2) * cos(angle)
+     ; here we will load 32 * cos(angle)
+     ; it is quckier to load the cos in as an integer
+     ; and shift it down twice.
+     ; if the msb is set then rotate in carry bits to maintain
+     ; twos complement
+     bmi x-neg+
+     lsr
+     lsr
+     sta tc-angle-vxi
+     jmp y+
+:x-neg
+     sec
+     ror
+     sec
+     ror
+     sta tc-angle-vxi
+:y      
+     clc
+     ldx tc-angle-target
+     lda sine+ x
+     bmi y-neg+
+     lsr
+     lsr
+     sta tc-angle-vyi
+     jmp done+
+
+:y-neg
+     sec
+     ror
+     sec
+     ror
+     sta tc-angle-vyi
+
+:done
+     clc
+     lda tc-angle-vxi
+     bmi x-neg+
+     adc $d000
+     sta $d002
+     bcc y+
+     lda @%00000010
+     ora $d010
+     sta $d010
+     jmp y+
+:x-neg
+     eor @$ff
+     adc @1     
+     sta $10
      lda $d000
      sec
-     sbc target-offset-x+ x
+     sbc $10
      sta $d002
-     jmp y+
-     ; otherwise add it
-:pos lda $d000
-     clc
-     adc target-offset-x+ x
-     sta $d002
+     bcc y+
+     lda @%1111_1101
+     and $d010
+     sta $d010
+
 :y
+     clc
+     lda tc-angle-vyi
+     bmi y-neg+
+     adc $d001
+     sta $d003
+     rts
+
+:y-neg     
+     eor @$ff
+     adc @1
+     sta $10
      lda $d001
      sec
-     sbc target-offset-y+ x
+     sbc $10
      sta $d003
      rts
      
@@ -508,40 +499,8 @@
        })
 
      (define (prepare-jump) {
-       ; load lookup table address based on angle and vel
-       lda @1
-       sta tc-table-frame
-       clc
-       lda @>trajectory-table-0:              
-       ldx tc-angle-target
-       beq skip+  ; x was zero so we don;t need to add anything
-:loop  adc @2
-       dex
-       bne loop-
-
-:skip
-       sta tc-traj-hi
-       ; to work out the velocity there are only 4 cases so
-       ; handle them explictly
-       ldx tc-vel
-       beq done+
-       cpx @1         ; forward 80
-       bne next+
-       lda @$80
-       sta tc-traj-lo
-       rts
-:next  cpx @2
-       bne next+
-       inc tc-traj-hi ; next bank
-       lda @0
-       sta tc-traj-lo
-       rts
-:next  cpx @3         ; next bank + 80
-       inc tc-traj-hi ; next bank
-       lda @$80
-       sta tc-traj-lo
-:done
-       rts
+       ; calculate the vx and vy deltas for the jump
+       lda 10
      })
      
 :animate
@@ -582,6 +541,9 @@
 ; joy bits are 0 if pressed
 :update     
 ; here the state machine is updated based on collisions and inputs
+     lda tc-angle-target
+     sta $402
+     sta $400
      lda tc-state
      sta $400
      lda tc-state
@@ -657,7 +619,7 @@
      sta tc-angle-change-delay
      ; increase angle if we can
      ldy tc-angle-target
-     cpy @10
+     cpy @70
      beq joy+
      iny
      sty tc-angle-target
@@ -672,9 +634,9 @@
     [joy-left #t state-angle-left
           { lda @0
             sta tc-angle-change-delay }]
-    [joy-left #f state-crouching]
     [joy-fire #f state-standing
-               (deactivate-target)]
+              (deactivate-target)]
+    [joy-left #f state-crouching]
     )]
 
   [state-angle-left
@@ -685,24 +647,30 @@
      sta tc-angle-change-delay
      ; decrease angle if we can
      ldy tc-angle-target
+     cpy @38
      beq joy+
      dey
      sty tc-angle-target
      jsr update-target-
      jmp joy+
+;; :reset
+;;      lda @$48
+;;      sta tc-angle-target
+     jmp joy+
 :skip
-     dex
+    dex
      stx tc-angle-change-delay
-       
+
+     
 :joy     
    }
    ([joy-down #t state-velocity]
     [joy-right #t state-angle-right
                { lda @0                     
                  sta tc-angle-change-delay }]
-    [joy-right #f state-crouching]
     [joy-fire #f state-standing
-              (deactivate-target)])]
+              (deactivate-target)]
+    [joy-right #f state-crouching])]
 
   [state-velocity
    {
@@ -742,7 +710,6 @@
                     }]
     [joy-down #f state-crouching])]
                      
-
   [state-jumping
    {
      ldx $d001
@@ -754,7 +721,7 @@
      jsr change-state:
      rts
 :cont
-     jsr table-test+
+     jsr update-jump:
      ;jumping, allow some sway if headed downwards.
      }
    (;[joy-fire #t state-standing]
@@ -783,69 +750,28 @@
    ))
 
     
-:table-test
-     ldy @0
-     ; x delta appears at the first byte
-     lda £ tc-traj-lo y
-     ; move sprite x. check sign bit
-     tax
-     and @%10000000
-     beq add+
-     ; is negative, invert bits and sub
-     txa
-     eor @$ff
-     clc
-     adc @1
-     sta tc-temp
-     lda $d000
-     sec
-     sbc tc-temp
-     sta $d000     
+:update-jump
+    ldx tc-angle-target
+    lda cosine+ x
+     ; vx = velocity (2) * cos(angle)
+     ; here we will load 32 * cos(angle)
+     ; it is quckier to load the cos in as an integer
+     ; and shift it down twice.
+     ; if the msb is set then crotate in carry bits to maintain
+     ; twos complement
+     bmi x-neg+
+     lsr
+     lsr
+     sta tc-angle-vxi
      jmp y+
-:add    
-     clc
-     txa
-     adc $d000
-     sta $d000
-:y
-     
-     ; load y delta
-     ldy tc-table-frame
-     lda £ tc-traj-lo y
-     tax
-     and @%10000000
-     beq add+
-; is negative, invert bits and sub
-     txa
-     eor @$ff
-     sta tc-temp
-     lda $d001
+:x-neg
      sec
-     sbc tc-temp
-     sta $d001
+     ror
+     sec
+     ror
+sta tc-angle-vxi
 
-     jmp end+
-:add     
-;break
-lda @1
-     sta tc-falling
-
-     clc
-     txa
-     adc $d001
-     sta $d001
-:end
-     clc
-     lda tc-table-frame
-     adc @1
-     bmi done+
-     sta tc-table-frame
-     rts
-:done
-     ldx @state-standing
-     jsr change-state-
-     lda @0
-     sta tc-falling
+:y
      rts
 
 
@@ -854,7 +780,9 @@ lda @1
                      "crouching" "angle-right" "angle-left"
                      "velocity" "jumping" "skidding-right"
                      "skidding-left" "falling-right"
+
                      "falling-left" "dying")
+/= $100
 :frame-start-offsets
       (for ([s states]) 
         (write-value (get-sprite-start s)))
@@ -866,13 +794,23 @@ lda @1
 :frame-anim-speeds      
      (data $30 $4 $4 $4 $4 $4 $4 $1 $4 $4 $4 $4 $4)
 
-:target-offset-x  ; where to move the target for each angle position
-                  ; the code knows < 4 is negative.     
-     (data 12 9 6 3 0 3 6 10 12 15 17)
+;sin/cos tables in 5 degreee increments
+/= $100
 
-:target-offset-y   ; always negative     
-     (data 15 17 18 19 20 19 18 17 15 12 9)
+(define (deg->rad rad)
+  (* (/ pi 180) rad))
 
+:sine
+(data
+(for/list ([x (in-range 0 365 5)])
+  (bitwise-and (exact-round (* (sin (deg->rad x)) 100)) #xFF)))
+
+:cosine
+(data
+(for/list ([x (in-range 0 365 5)])
+  (bitwise-and (exact-round (* (cos (deg->rad x)) 100)) #xFF)))
+
+/= $100
 :screen-rows-lo
   (write-values
    (for/list ([i (in-range 25)])
