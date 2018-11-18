@@ -37,8 +37,8 @@
         bne loop- })
     
 (define-syntax-parser joy-branch
-  [(_ #t) #'{bne skip+}] 
-  [(_ #f) #'{beq skip+}])
+  [(_ #t) #'{bne joy-skip+}] 
+  [(_ #f) #'{beq joy-skip+}])
 
 (define-syntax-parser generate-joy-transitions 
   [(_ ([test is-pressed? target (~optional extra #:defaults ([extra #'{}]))] ...))
@@ -51,7 +51,7 @@
        jsr change-state-
        extra
        rts
-       :skip
+       :joy-skip
        txa
        } ... }
    ])
@@ -134,19 +134,25 @@
          (printf "~a = $~x\n" 'name name)
          ) ...}])
 
-  acid-disco = (load-psid "C:\\C64Music\\MUSICIANS\\A\\A-Man\\acid_disco.sid")    
+  acid-disco = (load-psid "C:\\C64Music\\MUSICIANS\\A\\a-man\\acid_disco.sid")
   new-zp = (zp-generator (psid-header-zp acid-disco))
 
   ; ZP addresses
   ; ---------------------------
-  ;screen lookup pointer addresses
-  (zp
+  (zp ; assigned from $ff downwards
    screen-hi
    screen-lo
    tc-angle-vxi
-   tc-angle-vxf 
-   tc-angle-vyi 
-   tc-angle-vyf 
+   tc-angle-vyi
+   ;store vectors little endian 
+   tc-vec-x-high
+   tc-vec-x-low
+   tc-vec-y-high
+   tc-vec-y-low
+   tc-vec-vx-high
+   tc-vec-vx-low
+   tc-vec-vy-high
+   tc-vec-vy-low
    tc-falling 
    tc-vel-change-delay 
    tc-angle-change-delay 
@@ -155,10 +161,9 @@
    tc-vel 
    tc-angle-target 
    tc-anim-delay 
-   tc-frame ; tc stuff
+   tc-frame 
    tc-state)
-  
-  
+    
 }
 
 (C64{
@@ -281,8 +286,22 @@
    sta $542
    sta $543
    sta $544
-   sta $545
-   
+   sta $545   
+
+   sta $430
+   sta $431
+   sta $432
+   sta $433
+   sta $434
+   sta $435
+
+   sta $6A5
+   sta $6A6
+   sta $6A7
+   sta $6A8
+   sta $6A9
+   sta $6B0
+
    ;position sprites
    (for ([x (in-range 8)])
      {
@@ -292,6 +311,9 @@
       sta (+ $d000 (+ 1 (* x 2))) ; y
        })
 
+   lda $d000
+   lda $d001
+   
    ; turn on multicolour mode for all sprites
    lda @$FF
    sta $d01c
@@ -314,11 +336,9 @@
 
 
    sta tc-angle-vxi
-   sta tc-angle-vxf
    sta tc-angle-vyi
-   sta tc-angle-vyf
-   
-break
+   sta tc-vec-vy-low
+   sta tc-vec-vy-high
 ;     lda @%00000001
 ;     sta $d010
      (init-psid acid-disco)
@@ -402,9 +422,7 @@ break
      ;todo: copy d010 x-bit
      lda @0
      sta tc-angle-vxi
-     sta tc-angle-vxf
      sta tc-angle-vyi
-     sta tc-angle-vyf
 ;break
      ldx tc-angle-target
      lda cosine+ x
@@ -498,10 +516,103 @@ break
        
        })
 
-     (define (prepare-jump) {
-       ; calculate the vx and vy deltas for the jump
-       lda 10
-     })
+:prepare-jump
+   ; calculate the velcoity vector for the jump
+   ; we have two bytes; a sign bit, 9 whole bits
+   ; and 6 fraction bits.
+   ; the trig tables are calcuated to 6 bits of accuracy,
+   ; if they are negative then fill in all the other  
+   ; high bits with 1s to make the whole thing negative.
+   ; this can then be multiplied for extra
+   ; power
+
+   ;initialze X component
+   
+   ldx tc-angle-target
+   lda cosine: x
+   sta tc-vec-vx-low
+   sta $10
+   bpl (+ (here) 4)
+   lda @$ff
+   (data $2c) 
+   lda @0
+   sta tc-vec-vx-high
+   sta $11
+   
+   ; now multiply by tc-vel
+   ldy tc-vel
+:loop
+   beq done+
+   clc
+   break
+   lda $10
+   adc tc-vec-vx-low
+   sta tc-vec-vx-low
+   lda $11
+   adc tc-vec-vx-high
+   sta tc-vec-vx-high
+:skip2
+   dey
+   jmp loop-
+:done      
+
+   ;initialze Y component
+   lda sine: x
+   sta tc-vec-vy-low
+   sta $10
+   bpl (+ (here) 4)
+   lda @$ff
+   (data $2c) 
+   lda @0
+   sta tc-vec-vy-high
+   sta $11
+   
+
+   ldy tc-vel
+:loop
+   beq done+
+   clc
+   lda $10
+   adc tc-vec-vy-low
+   sta tc-vec-vy-low
+   lda $11
+   adc tc-vec-vy-high
+   sta tc-vec-vy-high
+:skip
+   dey
+   jmp loop-
+   :done 
+
+   ; map the sprite to the current position vector
+   ; (temporary until everything is based on it)
+
+   lda @0
+   sta tc-vec-x-low
+   sta tc-vec-y-low
+
+   
+   ;we must factor in the 9th bit in d010
+   ;we can cheat here since the last bit is the first
+   ;sprite which is TC.
+   lda $d010
+   ror ; 9th bit in carry
+   lda $d000
+   ror
+   ror tc-vec-x-low
+   ror
+   ror tc-vec-x-low
+   sta tc-vec-x-high
+
+   ;y is slightly easier
+   lda $d001
+   ror
+   ror tc-vec-y-low
+   ror
+   ror tc-vec-y-low
+   sta tc-vec-y-high
+   
+   rts
+
      
 :animate
      ; the job of this is to simply cycle the current TC animation
@@ -538,25 +649,100 @@ break
      sta tc-anim-delay
      rts
 
+
+   
+:update-jump
+   ; add the velocity vector to the
+   ; position vector. don't care about two's complement
+   ; here, all will work out when projecting to the screen
+   ; at the end.
+
+   clc
+   lda tc-vec-vx-low
+   adc tc-vec-x-low
+   sta tc-vec-x-low
+   lda tc-vec-vx-high
+   adc tc-vec-x-high
+   sta tc-vec-x-high
+   clc
+   lda tc-vec-vy-low
+   adc tc-vec-y-low
+   sta tc-vec-y-low
+   lda tc-vec-vy-high
+   adc tc-vec-y-high
+   sta tc-vec-y-high
+
+
+   ; add gravity to y velocity
+   clc
+   lda tc-vec-vy-low
+   adc @10
+   sta tc-vec-vy-low
+   bcc (+ (here) 3)
+   inc tc-vec-vy-high
+   
+   ; project to screen co-ords
+?=
+   ;x
+   lda tc-vec-x-high
+   sta $10
+   lda tc-vec-x-low
+   ; drop the sign bit
+   rol
+   rol $10
+   ; drop the 9th bit (into carry)
+   rol
+   rol $10
+   lda $10
+   sta $d000
+   bcc zero+
+   lda @1
+   ora $d010
+   sta $d010
+   bcc y+
+:zero
+   lda @%1111_1110
+   and $d010
+   sta $d010
+   =?
+   ;y
+:y lda tc-vec-y-high
+   sta $10
+   lda tc-vec-y-low
+   rol
+   rol $10
+   rol
+   rol $10
+   lda $10
+   sta $d001
+
+
+   
+   rts
+
+
 ; joy bits are 0 if pressed
 :update     
 ; here the state machine is updated based on collisions and inputs
-     lda tc-angle-target
-     sta $402
-     sta $400
-     lda tc-state
-     sta $400
-     lda tc-state
-     cmp @state-jumping
-     bne skip+
-     lda tc-falling
-     beq skip+
-     jsr sprite-char-collision:     
-     cmp @5
-     bne skip+
-     ldx @state-standing
-     jsr change-state-
-     rts
+   lda tc-angle-target
+   sta $402
+   sta $400
+   lda tc-state
+   sta $400
+   lda tc-state
+   cmp @state-jumping
+   bne skip+
+   lda tc-vec-vy-high
+   bmi skip+
+   jsr sprite-char-collision:
+   cmp @5
+   bne skip+
+   lda @0
+   sta tc-vec-vy-high
+   sta tc-vec-vy-low
+   ldx @state-standing
+   jsr change-state-
+   rts
 
 :skip
 (generate-state-machine
@@ -674,26 +860,26 @@ break
 
   [state-velocity
    {
+
     ldx tc-vel-change-delay
     bne skip+
     lda @vel-change-delay
     sta tc-vel-change-delay
-
     ldx tc-vel
-    cpx @3
+    cpx @5
     beq zero+
     inx
     (data $2c)
 :zero    
-    ldx @0
+    ldx @1
 :done
-   stx tc-vel
-   clc
-   txa
+    stx tc-vel
+    clc
+    txa
 ;   adc @49
-   sta $0402
-   clc
-   bcc joy+
+    sta $0404
+    clc
+    bcc joy+
 :skip
    dex
    stx tc-vel-change-delay
@@ -706,7 +892,7 @@ break
                     lda @0
                     sta tc-falling
                     (deactivate-target)
-                    (prepare-jump)
+                    jsr prepare-jump:
                     }]
     [joy-down #f state-crouching])]
                      
@@ -748,41 +934,16 @@ break
    ()]
   
    ))
-
     
-:update-jump
-    ldx tc-angle-target
-    lda cosine+ x
-     ; vx = velocity (2) * cos(angle)
-     ; here we will load 32 * cos(angle)
-     ; it is quckier to load the cos in as an integer
-     ; and shift it down twice.
-     ; if the msb is set then crotate in carry bits to maintain
-     ; twos complement
-     bmi x-neg+
-     lsr
-     lsr
-     sta tc-angle-vxi
-     jmp y+
-:x-neg
-     sec
-     ror
-     sec
-     ror
-sta tc-angle-vxi
-
-:y
-     rts
-
 
      
-     states = (list "standing" "walking-right" "walking-left"
+   states = (list "standing" "walking-right" "walking-left"
                      "crouching" "angle-right" "angle-left"
                      "velocity" "jumping" "skidding-right"
                      "skidding-left" "falling-right"
 
                      "falling-left" "dying")
-/= $100
+;/= $100
 :frame-start-offsets
       (for ([s states]) 
         (write-value (get-sprite-start s)))
@@ -795,7 +956,7 @@ sta tc-angle-vxi
      (data $30 $4 $4 $4 $4 $4 $4 $1 $4 $4 $4 $4 $4)
 
 ;sin/cos tables in 5 degreee increments
-/= $100
+;/= $100
 
 (define (deg->rad rad)
   (* (/ pi 180) rad))
@@ -803,14 +964,14 @@ sta tc-angle-vxi
 :sine
 (data
 (for/list ([x (in-range 0 365 5)])
-  (bitwise-and (exact-round (* (sin (deg->rad x)) 100)) #xFF)))
+  (bitwise-and (exact-round (* (sin (deg->rad x)) 63)) #xFF)))
 
 :cosine
 (data
 (for/list ([x (in-range 0 365 5)])
-  (bitwise-and (exact-round (* (cos (deg->rad x)) 100)) #xFF)))
+  (bitwise-and (exact-round (* (cos (deg->rad x)) 63)) #xFF)))
 
-/= $100
+;/= $100
 :screen-rows-lo
   (write-values
    (for/list ([i (in-range 25)])
@@ -821,3 +982,5 @@ sta tc-angle-vxi
    (for/list ([i (in-range 25)])
      (hi-byte (+ (* i 40) $0400))))
      })
+
+

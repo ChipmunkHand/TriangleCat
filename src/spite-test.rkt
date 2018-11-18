@@ -3,11 +3,13 @@
 (set-emulator-program! emu "c64.prg")
 (set-emulator-execute?! emu #t)
 (set-emulator-breakpoints?! emu #t)
-(set-emulator-path! emu "C:\\Program Files\\WinVICE-3.0-x64\\x64.exe")
+(if (eq? (system-type 'os) 'windows)
+  (set-emulator-path! emu "C:\\Program Files\\WinVICE-3.0-x64\\x64.exe")
+  (set-emulator-path! emu "/snap/bin/vice-jz.x64"))
+
 (require threading)
 (require racket/string racket/list racket/file)
 (require racket/list)
-(require "data.rkt")
 (struct sprite-data (frame-count data))
 
 (define (extract-sprite filename)
@@ -42,10 +44,6 @@
 
     (sprite-data frames data)))
 
-(define (load-psid filename)
-  (for ([b (drop (bytes->list (file->bytes filename)) (+ 2 $7c))])
-    (write-value b)))
-
 (define sprites
   (~>>
    (directory-list "..\\sprites" #:build? #t)
@@ -54,12 +52,13 @@
    (map extract-sprite)))
 
 (C64{
+
+     *= $0801
+     ;autostart
+     (data $0b $08 $01 $00 $9E $31 $32 $32 $38 $38 $00 $00 $00)
+     
      *= $1000
-    (load-psid "C:\\C64Music\\MUSICIANS\\A\\A-Man\\acid_disco.sid")
 
-
-    
-    (velocity-tables)
     ; raw sprite data starts at $2000
     *= $2000
     (data
@@ -69,7 +68,6 @@
       (flatten)))
     
     *= $3000
-
       ;enable all sprites
       lda @$FF
       sta $d015
@@ -122,15 +120,12 @@
      sta $42
 
 :loop
-; wait for the raster to hit the bottom of the screen
-;break
+     ; wait for the raster to hit the bottom of the screen
      lda $d012
      cmp @$ff
      bne loop-
-     jsr $1003
      lda is-animating
      beq joy+
-     jsr table-test+
      jmp skip-joy+
      :joy
      jsr check-joy:
@@ -232,61 +227,5 @@
          rts
 
 
-:table-test
-;     break
-     ldy @0
-     ; x delta appears at the first byte
-     lda £ current-offset-lo y
-     ; move sprite x. check sign bit
-     tax
-     and @%10000000
-     beq add+
-     ; is negative, invert bits and sub
-     txa
-     eor @$ff
-     sta current-temp
-     lda $d000
-     sec
-     sbc current-temp
-     sta $d000     
-     jmp y+
-:add    
-     clc
-     txa
-     adc $d000
-     sta $d000
-:y
-     
-     ; load y delta
-     ldy current-frame
-     lda £ current-offset-lo y
-     tax
-     and @%10000000
-     beq add+
-     ; is negative, invert bits and sub
-     txa
-     eor @$ff
-     sta current-temp
-     lda $d001
-     sec
-     sbc current-temp
-     sta $d001     
-     jmp end+
-:add     
-     clc
-     txa
-     adc $d001
-     sta $d001
-     :end
-     clc
-     lda current-frame
-     adc @1
-     bmi done+
-     sta current-frame
-     rts
-:done
-     lda @0
-     sta is-animating
-     rts
 
  })
