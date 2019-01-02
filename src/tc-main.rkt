@@ -284,7 +284,7 @@
 
    *= $0801
 ;autostart
-     (data $0b $08 $01 $00 $9E $31 $32 $32 $38 $38 $00 $00 $00 $00)
+     (data $0b $08 $01 $00 $9E $31 $36 $33 $38 $34 $00 $00 $00 $00)
           
 :programmer-check
          ;interrupt will be set on a negative transition
@@ -402,7 +402,7 @@
          rts
 
      
-*= $3800
+*= $3000
    (data
     ; 0
     %00000000
@@ -463,7 +463,7 @@
 
    
 ; main program    
-   *= $3000
+   *= $4000
             lda @0
          sta $dd03  ;pin all inputs
 
@@ -479,7 +479,7 @@
 
          ;clear any pending int
          lda $dd0d
-
+break
    (clear-mem $0400 32)
 ;enable sprite 1
 
@@ -501,10 +501,13 @@
    lda @(get-sprite-start "target")      
    sta $07f9     
 
-   ; chars at $3800
-   lda $d018
-   ora @%00001110
+   ; chars at $1000
+;   lda $d018
+    lda @%0001_1100  ;chars $3000, screen $0400
+;   ora @%0000_1110
    sta $d018
+
+   ;we will put sprites at $2000, code starts at $3000
 
    ;; lda @$ff
    ;; sta $3801
@@ -531,20 +534,29 @@
    sta $544
    sta $545   
 
-   sta $430
-   sta $431
-   sta $432
-   sta $433
-   sta $434
-   sta $435
+   sta $45D
+   sta $45E
+   sta $45F
+   sta $460
+   sta $461
+   sta $462
 
+   
+   
+   sta $450
+   sta $451
+   sta $452
+   sta $453
+   
    sta $6A5
    sta $6A6
    sta $6A7
    sta $6A8
    sta $6A9
-   sta $6B0
+   sta $6AA
 
+   
+   
    ;position sprites
    (for ([x (in-range 8)])
      {
@@ -777,14 +789,15 @@
 
    ; for the initial test we will only check if TC is going down and right.  Both are positive
    ; numbers in the vector.
-   lda tc-vec-vx-high
-   bpl next+
-   rts
-:next   
-   lda tc-vec-vy-high 
-   bpl next+
-   rts
-:next   
+;;    lda tc-vec-vx-high
+;;    bpl next+
+;;    rts
+;; :next   
+;;    lda tc-vec-vy-high 
+;;    bpl next+
+;;    rts
+;; :next  
+   
 ;   break
    
    ; first we take the "current position" and add the x and y vectors to it
@@ -1391,9 +1404,9 @@
 
 
 
-
-;; :tile-meta
-;;   (data (for/list ([i (in-range 256)]) (lo-byte $FF)))
+/= $ff
+:tile-meta
+  (data (for/list ([i (in-range 256)]) (lo-byte $FF)))
 
 
 
