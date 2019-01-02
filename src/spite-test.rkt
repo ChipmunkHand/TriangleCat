@@ -10,7 +10,7 @@
 (require threading)
 (require racket/string racket/list racket/file)
 (require racket/list)
-(struct sprite-data (frame-count data))
+(struct sprite-data (frame-count data) #:transparent)
 
 (define (extract-sprite filename)
   (let* (;read file as a sequence of lines
@@ -44,13 +44,15 @@
 
     (sprite-data frames data)))
 
+
+
 (define sprites
   (~>>
-   (directory-list "..\\sprites" #:build? #t)
+   (directory-list "../sprites" #:build? #t)
    (map path->string)
    (filter (λ (s) (string-suffix? s ".txt")))
    (map extract-sprite)))
-
+(writeln sprites)
 (C64{
 
      *= $0801
@@ -68,6 +70,7 @@
       (flatten)))
     
     *= $3000
+
       ;enable all sprites
       lda @$FF
       sta $d015
@@ -104,7 +107,7 @@
      sta $D026
 
  ;    jsr $1000
-     (define delay $5)
+     (define delay $15)
      (define is-animating $58)
      (define current-frame $60)
      (define current-offset-lo $61)
@@ -151,7 +154,8 @@
                   {
                    ;load sprite pointer value
                    ldx (+ $07f8 index)
-                   ;is it on the final frame?    
+                       ;is it on the final frame?
+                       break
                    cpx @(+ base-offset (- (sprite-data-frame-count s) 1))
                    bne skip+
                    ;reset to its first frame
