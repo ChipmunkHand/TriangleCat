@@ -67,12 +67,31 @@
    lsr
    })
 
+
+
+(define (create-fractional-vec target value)
+  ;creates a 16 bit vector at target (low address)
+  ;uses 1 sign bit, 9 whole bits and 6 fractional.
+  (cond
+    [(integer? value)
+     (if (> value -1)
+         (let ([low  (bitwise-and value %00_111_111)])             
+            {
+              lda @low
+              sta target
+              lda @0
+              sta (+ target 1)
+            })
+         (error "create-vec doesnt yet support negative values"))]
+    [else  (raise-argument-error 'create-vec "integer?" value)]))
+
 (define (create-vec target value)
   ;creates a 16 bit vector at target (low address)
   ;uses 1 sign bit, 9 whole bits and 6 fractional.
-  (if (integer? value) 
-      (if (> value 0)
-          (let* ([actual (arithmetic-shift value 6)]
+  (cond
+    [(integer? value)
+     (if (> value -1)
+         (let* ([actual (arithmetic-shift value 6)]
                  [high   (arithmetic-shift (bitwise-and actual $FF00) -8)]
                  [low    (bitwise-and actual $FF)])             
             {
@@ -81,6 +100,6 @@
               lda @high
               sta (+ target 1)
             })
-          (error "create-vec doesnt yet support negative values"))
-  (raise-argument-error 'create-vec "integer?" value)))
+         (error "create-vec doesnt yet support negative values"))]
+    [else  (raise-argument-error 'create-vec "integer?" value)]))
   

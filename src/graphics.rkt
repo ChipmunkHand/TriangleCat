@@ -2,7 +2,10 @@
 
 (provide (all-defined-out))
 
-(require "global.rkt")
+(require
+ "global.rkt"
+ "maths.rkt"
+ "spritemate.rkt")
 (define (graphics-code)
   {
 
@@ -10,57 +13,100 @@
 :animate
      ; the job of this is to simply cycle the current TC animation
      ; and nothing else.
+     lda tc-state
+     cmp tc-prev-state
+     beq cont+
+     ldy tc-state
+     cpy @state-airborne
+     bne next+
+     ldy @5
+     jmp reset+
+  :next     
+     ldy @0
+     jmp reset+
+:cont     
      ldx tc-anim-delay
      beq change+
      dex
      stx tc-anim-delay
      rts     
-  :change
+ :change
      ldy tc-state
+     cpy @state-airborne
+     bne next+
+     ldy @5
+     beq done+
+  :next     
+     ldy @0
+  :done
      ldx frame-anim-speeds+ y
      stx tc-anim-delay
      ldx frame-end-offsets+ y
      cpx tc-frame
      beq reset+
+     break
      inc tc-frame
      jmp end+
-  :reset     
+ :reset     
      ldx frame-start-offsets+ y
      stx tc-frame
   :end
-     ; copy to first sprite
+      ; copy to first sprite
+       ;;todo: this is totally broken now, just display the standing with no anims
      lda tc-frame
-     sta $07f8
+;     sta $07f8
      rts
 
+
 :render
-   ; map the sprite to the current position vector
-   lda @0
-   sta tc-vec-x-low
-   sta tc-vec-y-low
+   ; display the sprite at the position vector
+   (copy-16 vec-temp-low tc-vec-x-low)
+
+   ;rotate out the sign bit, in the 9th bit then
+   ;the 8th bit leving the 1st in the carry
    
-   ;we must factor in the 9th bit in d010
-   ;we can cheat here since the last bit is the first
-   ;sprite which is TC.
+   asl vec-temp-high  ; sign out
+   asl vec-temp-low   ; 9th in 
+   rol vec-temp-high  ; 1st bit out
    lda $d010
-   ror ; 9th bit in carry
-   lda $d000
-   ror
-   ror tc-vec-x-low
-   ror
-   ror tc-vec-x-low
-   sta tc-vec-x-high
+   bcc not-set+
+   ; adjust bit in $d010 depending on carry
+   ora @%0000_0001
+   bcs next+
+ :not-set
+   and @%1111_1110
+ :next
+   sta $d010
+   lda vec-temp-high
+   sta $d000
 
-   ;y is slightly easier
-   lda $d001
-   ror
-   ror tc-vec-y-low
-   ror
-   ror tc-vec-y-low
-   sta tc-vec-y-high
-
+   ; Y is a lot simpler !
+   (copy-16 vec-temp-low tc-vec-y-low)
+   asl vec-temp-high   ; sign bit out
+   asl vec-temp-low    ; 9th bit in
+   rol vec-temp-high   ; 1st bit out
+   ; here we dont care about bit 9 since the
+   ; Y limit is 240
+   lda vec-temp-high
+   sta $d001
    rts
-   ;TODO- target angle if in crouch/angle state
+
+   sprites = (list "standing" "walking-right" "walking-left"
+                     "crouching"  "velocity" "airborne" "skidding-right"
+                     "skidding-left" "dying")
+;/= $100
+:frame-start-offsets
+      (for ([s sprites]) 
+        (write-value (get-sprite-start s)))
+
+:frame-end-offsets
+      (for ([s sprites]) 
+        (write-value (get-sprite-end s)))
+
+:frame-anim-speeds      
+     (data $30 $4 $4 $4 $4 $1 $4 $1 $4)
+
+
    })
 
 

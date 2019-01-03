@@ -147,6 +147,12 @@
    lda @$06 ; sprite multicolor 2
    sta $D026
 
+   (create-vec tc-vec-vx-low  0)
+   (create-vec tc-vec-vy-low  0)
+
+   (create-vec tc-vec-x-low  20)
+   (create-vec tc-vec-y-low  40)
+
    lda @angle-change-delay
    sta tc-angle-change-delay
    lda @vel-change-delay
@@ -162,6 +168,11 @@
    sta tc-angle-vyi
    sta tc-vec-vy-low
    sta tc-vec-vy-high
+
+
+
+
+
 ;     lda @%00000001
 ;     sta $d010
    (init-psid acid-disco)
@@ -174,6 +185,8 @@
    inc $d020
    (play-psid acid-disco)
    inc $d020
+   lda tc-state
+   sta tc-prev-state
    jsr state-update:
    jsr global-physics:
    inc $d020
@@ -186,50 +199,25 @@
    lda $d012
    cmp @$ff
    bne iloop-
+   inc $d020
    jsr programmer-check:   
    jsr render:
    jsr animate:
-   inc $d020
+   dec $d020
    jmp loop-
 
 :global-physics
+   (create-fractional-vec vec-temp-low 11)
+   (add-16 tc-vec-vy-low vec-temp-low)
    rts
 
    (graphics-code)
    (state-machine-code)
    (collision-detection-code)
    
-     
-
-; joy bits are 0 if pressed
-:update     
-; here the state machine is updated based on collisions and inputs
-   lda tc-angle-target
-   sta $0402            ; indicate state machine on screen
-   sta $0400
-   lda tc-state
-   sta $0400
-   lda tc-state
-   ;; cmp @state-jumping
-   ;; bne skip+
-   ;; lda tc-vec-vy-high
-   ;; bmi skip+
-   ;; jsr sprite-char-collision:
-   ;; cmp @5
-   ;; bne skip+
-   ;; lda @0
-   ;; sta tc-vec-vy-high
-   ;; sta tc-vec-vy-low
-   ;; ldx @state-standing
-   ;; jsr change-state-
-   ;; rts
-
-
-:skip
-
+    
 ;sin/cos tables in 5 degreee increments
 ;/= $100
-
 (define (deg->rad rad)
   (* (/ pi 180) rad))
 

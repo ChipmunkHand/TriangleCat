@@ -40,19 +40,11 @@
   left = 3
   
   ; TC state machine states
-  state-standing = $0
-  state-walking-right = $1
-  state-walking-left = $2
-  state-crouching = $3
-  state-angle-right = $4
-  state-angle-left = $5
-  state-velocity = $6
-  state-jumping = $7
-  state-skidding-right = $8
-  state-skidding-left = $9 
-  state-falling-right = $a 
-  state-falling-left = $b
-  state-dying = $c
+  state-standing = $0   ;stand,walk,slide
+  state-crouching = $1  ;crouch,targetting
+  state-velocity = $2   ;prepare to jump
+  state-airborne = $3   ;jumping/falling
+  state-dying = $4
 
   angle-change-delay = $4
   vel-change-delay = $14
@@ -94,6 +86,7 @@
    tc-anim-delay 
    tc-frame 
    tc-state
+   tc-prev-state
    tc-vec-tempx-high
    tc-vec-tempx-low
    tc-vec-tempy-high

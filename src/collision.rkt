@@ -133,13 +133,13 @@
    ; for this test that is the bottom centre of the sprite, so we need to add
    ; 24 to the Y and 12 to the X
    ; Y border is $32 pixels and X is $18 pixels which must always be subtracted
-   ; that leaves us with subtracting ($32 - 24) 26 for Y and
+   ; that leaves us with subtracting ($32 - 21) 29 for Y and
    ; ($18 - 12) 12 for X
 
    (create-vec vec-temp-low 12)
    (sub-16 tc-vec-tempx-low vec-temp-low)
 
-   (create-vec vec-temp-low 26)
+   (create-vec vec-temp-low 29)
    (sub-16 tc-vec-tempy-low vec-temp-low)
 
    (add-16 tc-vec-tempx-low tc-vec-vx-low)
@@ -154,22 +154,22 @@
    ; for Y we need to rotate in the 8th bit and drop the sign
    (vec/8 tc-vec-tempy-low)
    tax 
-;   sta scratch-b
+   sta scratch-b  ; Y pos
    lda screen-rows-lo: x
    sta screen-lo
    lda screen-rows-hi: x
    sta screen-hi
 
    (vec/8 tc-vec-tempx-low)
- ;  sta scratch-a
+   sta scratch-a  ; x pos
    tay
    lda £ screen-lo y          ; return value at 
    sta scratch-a
    cmp @$20
    beq end+
-   break
+
    jsr collision-direction:
-   sta scratch-b
+;   sta scratch-b
 
    ;lookup tile metadata
    ;; tax
@@ -180,15 +180,36 @@
    ;; beq skip+
 
    ; this flag is "invert y vector"
-   (vec/neg tc-vec-vy-low vec-temp-low)
+   ;(vec/neg tc-vec-vy-low vec-temp-low)
+
+   ;clamp to low / 8
+   (create-vec tc-vec-vy-low 0)
+
+;   break
+   ; todo: this can be better
+   ;; lda @0
+   ;; sta tc-vec-y-low
+   ;; lda tc-vec-y-high
+   ;; and @%1111_1110
+   ;; sta tc-vec-y-high
+
    
-:skip   
+   (add-16 tc-vec-x-low tc-vec-vx-low)
+
    
-   dec $d021
-;   inc $d021
+   rts
    
 
+
+;   dec $d021
+;   inc $d021
+   
+   
    :end
+
+   (add-16 tc-vec-x-low tc-vec-vx-low)
+   (add-16 tc-vec-y-low tc-vec-vy-low)
+   
    rts
 
 

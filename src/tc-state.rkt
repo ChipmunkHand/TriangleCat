@@ -12,15 +12,13 @@
   [(_ #f) #'{beq joy-skip+}])
 
 (define-syntax-parser generate-joy-transitions
-  [(_ ([test is-pressed? target (~optional extra #:defaults ([extra #'{}]))] ...))
+  [(_ ([test is-pressed? to-execute] ...))
    #'{lda $dc00
       tax      
       {
        and @test
        (joy-branch is-pressed?) 
-       ldx @target
-       jsr change-state-
-       extra
+       to-execute
        rts
        :joy-skip
        txa
@@ -67,17 +65,11 @@
         :jump-vector-hi (data $FF)
 
         }])
-
-(define (state-machine-code)
-  {
-:state-update
-   rts
-     
      (define (activate-target) {
        lda $d015
        ora @%00000010
        sta $d015       
-       jsr update-target-
+       jsr update-target:
        })
                               
      (define (deactivate-target) {
@@ -86,6 +78,182 @@
        sta $d015
        
        })
+
+(define (state-machine-code)
+  {
+:state-update
+   lda tc-angle-target
+   sta $0402            ; indicate state machine on screen
+   sta $0400
+   lda tc-state
+   sta $0400
+   lda tc-state
+   jsr update-target:
+   ; first try to update a state based on what we can observe.
+   ; first, if vy is +/- then TC is jumping / falling.  the platforms
+   ; will clamp these values to zero when they are landed on so
+   ; otherwise the player must have jumped or fell
+   ; it is possible they are already jumping or falling, which is fine
+
+   ; state =
+   ;   if vy <> 0 then airborne
+   ;   elif state = airborne then standing
+   ;   else state
+   lda tc-vec-vy-high
+   bne next+
+   lda tc-vec-vy-low
+   bne next+
+   lda tc-state
+   cmp @state-airborne
+   bne machine+
+   lda @state-standing
+   sta tc-state 
+   jmp machine+
+   :next
+   break
+   lda @state-airborne
+   sta tc-state
+   (deactivate-target)
+
+
+   :machine
+
+ (generate-state-machine
+   ([state-standing
+     { }
+     ([joy-right #t
+        {
+         (create-fractional-vec vec-temp-low 10)
+         (add-16 tc-vec-vx-low vec-temp-low)
+        } ]
+      [joy-left  #t
+         {
+         (create-fractional-vec vec-temp-low 10)
+         (sub-16 tc-vec-vx-low vec-temp-low)
+        } ]
+      [joy-fire  #t
+        {
+         (activate-target)
+         ldx @state-crouching
+         jsr change-state+
+          
+                  } ])
+     ]
+
+    [state-crouching
+     {}
+     ([joy-down #t
+        {ldx @state-velocity
+         jsr change-state:
+        }]
+      [joy-left #t 
+          { ldx tc-angle-change-delay
+            bne skip+
+            lda @angle-change-delay
+            sta tc-angle-change-delay
+            ; decrease angle if we can
+            ldy tc-angle-target
+            cpy @38
+            beq joy+
+            dey
+            sty tc-angle-target
+            jsr update-target:
+            jmp joy+
+          :skip
+            dex
+            stx tc-angle-change-delay
+          :joy
+            } ]
+      [joy-right #t
+              {
+               ldx tc-angle-change-delay
+               bne skip+
+               lda @angle-change-delay
+               sta tc-angle-change-delay
+               ; increase angle if we can
+               ldy tc-angle-target
+               cpy @70
+               beq joy+
+               iny
+               sty tc-angle-target
+               jsr update-target:
+               jmp joy+
+             :skip
+               dex
+               stx tc-angle-change-delay
+             :joy
+             }]
+      [joy-fire #f
+                {
+                 ldx @state-standing
+                 jsr change-state:
+                 (deactivate-target)
+                 }])]
+
+
+  [state-velocity
+   {
+
+    ldx tc-vel-change-delay
+    bne skip+
+    lda @vel-change-delay
+    sta tc-vel-change-delay
+    ldx tc-vel
+    cpx @5
+    beq zero+
+    inx
+    (data $2c)
+:zero    
+    ldx @1
+:done
+    stx tc-vel
+    clc
+    txa
+;   adc @49
+    sta $0404
+    clc
+    bcc joy+
+:skip
+   dex
+   stx tc-vel-change-delay
+:joy
+   }
+   ([joy-down #f 
+                 {
+                    lda @vel-change-delay
+                    sta tc-vel-change-delay
+                    lda @0
+                    sta tc-falling
+                    (deactivate-target)
+                    jsr prepare-jump:
+                    }]
+    [joy-down #f
+              { ldx @state-crouching
+                jsr change-state: }])]
+
+    [state-airborne
+     {}
+     ([joy-right #t
+        {
+         (create-fractional-vec vec-temp-low 5)
+         (add-16 tc-vec-vx-low vec-temp-low)
+        } ]
+      [joy-left  #t
+         {
+         (create-fractional-vec vec-temp-low 5)
+         (sub-16 tc-vec-vx-low vec-temp-low)
+        } ]
+      [joy-fire  #t {} ])
+]
+    
+    [state-dying
+     {}
+     ()]
+    ))
+   
+   
+ rts
+     
 :update-target
      ;;place the target above the cat depending on its value
      ;todo: copy d010 x-bit
@@ -182,57 +350,56 @@
    ; power
 
    ;initialze X component
-   
+
    ldx tc-angle-target
    lda cosine: x
-   sta tc-vec-vx-low
+   sta vec-temp-low
    sta $10
    bpl (+ (here) 4)
    lda @$ff
    (data $2c) 
    lda @0
-   sta tc-vec-vx-high
+   sta vec-temp-high
    sta $11
    
    ; now multiply by tc-vel
    ldy tc-vel
 :loop
    beq done+
-   (add-16 tc-vec-vx-low $10)
+   (add-16 vec-temp-low $10)
 :skip2
    dey
    jmp loop-
 :done      
+   (add-16 tc-vec-vx-low vec-temp-low)
 
    ;initialze Y component
    lda sine: x
-   sta tc-vec-vy-low
+   sta vec-temp-low
    sta $10
    bpl (+ (here) 4)
    lda @$ff
    (data $2c) 
    lda @0
-   sta tc-vec-vy-high
+   sta vec-temp-high
    sta $11
-   
-
    ldy tc-vel
 :loop
    beq done+
-   (add-16 tc-vec-vy-low $10)
+   (add-16 vec-temp-low $10)
 :skip
    dey
    jmp loop-
    :done
-
+   (add-16 tc-vec-vy-low vec-temp-low)
    rts
 
 
 
 :change-state ; pass new state in x
      stx tc-state
-     lda frame-start-offsets+ x
-     sta tc-frame
+     ;; lda frame-start-offsets+ x
+     ;; sta tc-frame
      lda @0
      sta tc-anim-delay
      rts
@@ -296,213 +463,197 @@
    rts
 
 
-(generate-state-machine
- ([state-standing
-   { }
-   ([joy-right #t state-walking-right ]
-    [joy-left  #t state-walking-left]
-    [joy-fire  #t state-crouching
-               (activate-target)])]
+;; (generate-state-machine
+;;  ([state-standing
+;;    { }
+;;    ([joy-right #t state-walking-right ]
+;;     [joy-left  #t state-walking-left]
+;;     [joy-fire  #t state-crouching
+;;                (activate-target)])]
                
-  [state-walking-right
-   {
-    ; move sprite right
-    lda $d000
-    clc
-    adc @2
-    sta $d000
-    bcc skip+
-    lda @%00000001
-    eor $d010
-    sta $d010
-:skip    
-   }    
-   ([joy-left  #t state-walking-left]
-    [joy-right #f state-standing])]
+;;   [state-walking-right
+;;    {
+;;     ; move sprite right
+;;     lda $d000
+;;     clc
+;;     adc @2
+;;     sta $d000
+;;     bcc skip+
+;;     lda @%00000001
+;;     eor $d010
+;;     sta $d010
+;; :skip    
+;;    }    
+;;    ([joy-left  #t state-walking-left]
+;;     [joy-right #f state-standing])]
   
-  [state-walking-left
-   {
-    ; move sprite left
-    lda $d000
-    sec
-    sbc @2
-    sta $d000
-    bcs skip+
-    lda @%00000001
-    eor $d010
-    sta $d010
-:skip    
-    }
-   ([joy-right #t state-walking-right]
-    [joy-left  #f state-standing])]
+;;   [state-walking-left
+;;    {
+;;     ; move sprite left
+;;     lda $d000
+;;     sec
+;;     sbc @2
+;;     sta $d000
+;;     bcs skip+
+;;     lda @%00000001
+;;     eor $d010
+;;     sta $d010
+;; :skip    
+;;     }
+;;    ([joy-right #t state-walking-right]
+;;     [joy-left  #f state-standing])]
 
-  [state-crouching
-   {}
-   ([joy-down #t state-velocity]
-    [joy-left #t state-angle-left
-          { lda @0
-            sta tc-angle-change-delay } ]
-    [joy-right #t state-angle-right
-          { lda @0
-            sta tc-angle-change-delay }] 
-    [joy-fire #f state-standing
-               (deactivate-target)])]
+;;   [state-crouching
+;;    {}
+;;    ([joy-down #t state-velocity]
+;;     [joy-left #t state-angle-left
+;;           { lda @0
+;;             sta tc-angle-change-delay } ]
+;;     [joy-right #t state-angle-right
+;;           { lda @0
+;;             sta tc-angle-change-delay }] 
+;;     [joy-fire #f state-standing
+;;                (deactivate-target)])]
   
-  [state-angle-right
-   {
-     ldx tc-angle-change-delay
-     bne skip+
-     lda @angle-change-delay
-     sta tc-angle-change-delay
-     ; increase angle if we can
-     ldy tc-angle-target
-     cpy @70
-     beq joy+
-     iny
-     sty tc-angle-target
-     jsr update-target-
-     jmp joy+
-:skip
-     dex
-     stx tc-angle-change-delay
-:joy     
-   }
-   ([joy-down #t state-velocity]
-    [joy-left #t state-angle-left
-          { lda @0
-            sta tc-angle-change-delay }]
-    [joy-fire #f state-standing
-              (deactivate-target)]
-    [joy-left #f state-crouching]
-    )]
+;;   [state-angle-right
+;;    {
+;;      ldx tc-angle-change-delay
+;;      bne skip+
+;;      lda @angle-change-delay
+;;      sta tc-angle-change-delay
+;;      ; increase angle if we can
+;;      ldy tc-angle-target
+;;      cpy @70
+;;      beq joy+
+;;      iny
+;;      sty tc-angle-target
+;;      jsr update-target-
+;;      jmp joy+
+;; :skip
+;;      dex
+;;      stx tc-angle-change-delay
+;; :joy     
+;;    }
+;;    ([joy-down #t state-velocity]
+;;     [joy-left #t state-angle-left
+;;           { lda @0
+;;             sta tc-angle-change-delay }]
+;;     [joy-fire #f state-standing
+;;               (deactivate-target)]
+;;     [joy-left #f state-crouching]
+;;     )]
 
-  [state-angle-left
-   {
-     ldx tc-angle-change-delay
-     bne skip+
-     lda @angle-change-delay
-     sta tc-angle-change-delay
-     ; decrease angle if we can
-     ldy tc-angle-target
-     cpy @38
-     beq joy+
-     dey
-     sty tc-angle-target
-     jsr update-target-
-     jmp joy+
-;; :reset
-;;      lda @$48
-;;      sta tc-angle-target
-     jmp joy+
-:skip
-    dex
-     stx tc-angle-change-delay
+;;   [state-angle-left
+;;    {
+;;      ldx tc-angle-change-delay
+;;      bne skip+
+;;      lda @angle-change-delay
+;;      sta tc-angle-change-delay
+;;      ; decrease angle if we can
+;;      ldy tc-angle-target
+;;      cpy @38
+;;      beq joy+
+;;      dey
+;;      sty tc-angle-target
+;;      jsr update-target-
+;;      jmp joy+
+;; ;; :reset
+;; ;;      lda @$48
+;; ;;      sta tc-angle-target
+;;      jmp joy+
+;; :skip
+;;     dex
+;;      stx tc-angle-change-delay
 
      
-:joy     
-   }
-   ([joy-down #t state-velocity]
-    [joy-right #t state-angle-right
-               { lda @0                     
-                 sta tc-angle-change-delay }]
-    [joy-fire #f state-standing
-              (deactivate-target)]
-    [joy-right #f state-crouching])]
+;; :joy     
+;;    }
+;;    ([joy-down #t state-velocity]
+;;     [joy-right #t state-angle-right
+;;                { lda @0                     
+;;                  sta tc-angle-change-delay }]
+;;     [joy-fire #f state-standing
+;;               (deactivate-target)]
+;;     [joy-right #f state-crouching])]
 
-  [state-velocity
-   {
+;;   [state-velocity
+;;    {
 
-    ldx tc-vel-change-delay
-    bne skip+
-    lda @vel-change-delay
-    sta tc-vel-change-delay
-    ldx tc-vel
-    cpx @5
-    beq zero+
-    inx
-    (data $2c)
-:zero    
-    ldx @1
-:done
-    stx tc-vel
-    clc
-    txa
-;   adc @49
-    sta $0404
-    clc
-    bcc joy+
-:skip
-   dex
-   stx tc-vel-change-delay
-:joy
-   }
-   ([joy-down #f state-jumping    
-                 {
-                    lda @vel-change-delay
-                    sta tc-vel-change-delay
-                    lda @0
-                    sta tc-falling
-                    (deactivate-target)
-                    jsr prepare-jump:
-                    }]
-    [joy-down #f state-crouching])]
+;;     ldx tc-vel-change-delay
+;;     bne skip+
+;;     lda @vel-change-delay
+;;     sta tc-vel-change-delay
+;;     ldx tc-vel
+;;     cpx @5
+;;     beq zero+
+;;     inx
+;;     (data $2c)
+;; :zero    
+;;     ldx @1
+;; :done
+;;     stx tc-vel
+;;     clc
+;;     txa
+;; ;   adc @49
+;;     sta $0404
+;;     clc
+;;     bcc joy+
+;; :skip
+;;    dex
+;;    stx tc-vel-change-delay
+;; :joy
+;;    }
+;;    ([joy-down #f state-jumping    
+;;                  {
+;;                     lda @vel-change-delay
+;;                     sta tc-vel-change-delay
+;;                     lda @0
+;;                     sta tc-falling
+;;                     (deactivate-target)
+;;                     jsr prepare-jump:
+;;                     }]
+;;     [joy-down #f state-crouching])]
                      
-  [state-jumping
-   {
-     ldx $d001
-     cpx @$d1
-     bcc cont+
-     lda @$d0
-     sta $d001
-     ldx @state-standing
-     jsr change-state:
-     rts
-:cont
-     jsr update-jump:
-     ;jumping, allow some sway if headed downwards.
-     }
-   (;[joy-fire #t state-standing]
-    )]
+;;   [state-jumping
+;;    {
+;;      ldx $d001
+;;      cpx @$d1
+;;      bcc cont+
+;;      lda @$d0
+;;      sta $d001
+;;      ldx @state-standing
+;;      jsr change-state:
+;;      rts
+;; :cont
+;;      jsr update-jump:
+;;      ;jumping, allow some sway if headed downwards.
+;;      }
+;;    (;[joy-fire #t state-standing]
+;;     )]
 
-  [state-skidding-left
-   {}
-   ()]
+;;   [state-skidding-left
+;;    {}
+;;    ()]
 
-  [state-skidding-right
-   {}
-   ()]
+;;   [state-skidding-right
+;;    {}
+;;    ()]
 
-  [state-falling-right
-   {}
-   ()]
+;;   [state-falling-right
+;;    {}
+;;    ()]
 
-  [state-falling-left
-   {}
-   ()]
+;;   [state-falling-left
+;;    {}
+;;    ()]
 
-  [state-dying
-   {}
-   ()]
+;;   [state-dying
+;;    {}
+;;    ()]
   
-   ))    
+;;    ))
+
 
      
-   states = (list "standing" "walking-right" "walking-left"
-                     "crouching" "angle-right" "angle-left"
-                     "velocity" "jumping" "skidding-right"
-                     "skidding-left" "falling-right"
-
-                     "falling-left" "dying")
-;/= $100
-:frame-start-offsets
-      (for ([s states]) 
-        (write-value (get-sprite-start s)))
-
-:frame-end-offsets
-      (for ([s states]) 
-        (write-value (get-sprite-end s)))
-
-:frame-anim-speeds      
-     (data $30 $4 $4 $4 $4 $4 $4 $1 $4 $4 $4 $4 $4)
 
    })
