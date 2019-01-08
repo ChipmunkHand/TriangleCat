@@ -105,4 +105,3 @@
             })
          (error "create-vec doesnt yet support negative values"))]
     [else  (raise-argument-error 'create-vec "integer?" value)]))
-  

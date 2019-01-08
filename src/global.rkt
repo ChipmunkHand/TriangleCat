@@ -93,12 +93,18 @@
    tc-vec-tempy-low
    vec-temp-high
    vec-temp-low
-   scratch-a
+   vec-originx-high
+   vec-originx-low
+   vec-originy-high
+   vec-originy-low
+   scratch-a   
    scratch-b
    scratch-c
    scratch-d
    collision-x
    collision-y
+   temp-ptr-high
+   temp-ptr-low
    )
     
 }

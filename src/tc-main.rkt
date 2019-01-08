@@ -204,7 +204,7 @@
    jsr state-update:
    jsr global-physics:
    inc $d020
-   jsr collision-detection:
+   jsr collision-detection-new:
    dec $d020
    dec $d020
    dec $d020
@@ -221,7 +221,7 @@
    jmp loop-
 
 :global-physics
-   (create-fractional-vec vec-temp-low 12)
+   (create-fractional-vec vec-temp-low 9)
    (add-16 tc-vec-vy-low vec-temp-low)
    rts
 
