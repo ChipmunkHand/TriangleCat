@@ -6,7 +6,8 @@
  "maths.rkt"
  "spritemate.rkt")
 (provide state-machine-code)
-    
+
+
 (define-syntax-parser joy-branch
   [(_ #t) #'{bne joy-skip+}] 
   [(_ #f) #'{beq joy-skip+}])
@@ -24,7 +25,7 @@
        txa
        } ... }
    ])
-
+      
 (define-syntax-parser generate-state-machine
   [(_ ([state-number
         update-code
@@ -35,7 +36,7 @@
         sta jump-vector-lo+     ; 16 bit address pointer
         lda state-machine-hi: x
         sta jump-vector-hi+
-        jmp £ jump-vector-lo:    ; jump to target state
+        jmp £ jump-vector-lo+    ; jump to target state
         
 
         ; write out the states 
@@ -110,7 +111,7 @@
    sta tc-state 
    jmp machine+
    :next
-   break
+;   break
    lda @state-airborne
    sta tc-state
    (deactivate-target)

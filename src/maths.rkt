@@ -69,6 +69,9 @@
 
 
 
+
+
+
 (define (create-fractional-vec target value)
   ;creates a 16 bit vector at target (low address)
   ;uses 1 sign bit, 9 whole bits and 6 fractional.

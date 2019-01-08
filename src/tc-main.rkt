@@ -32,6 +32,9 @@
        	dex
         bne loop- })
 
+
+
+
 (C64{
    (hash-for-each sprites
     (λ (_ sprite)
@@ -39,6 +42,7 @@
         (set-location (sprite-data-start-address sprite))
         (data (sprite-data-data sprite)))))
 
+   
 *= $0801
    ;autostart 163844 ($4000)
    (data $0b $08 $01 $00 $9E $31 $36 $33 $38 $34 $00 $00 $00 $00)          
@@ -126,6 +130,16 @@
    sta $6A9
    sta $6AA
 
+
+   (for ([x (in-range 40)])
+     { sta (+ $7C0 x)})
+
+   (for ([x (in-range 24)])
+     { sta (+ $0400 (* x 40))
+       sta (+ $0400 (* x 40) 39)
+
+       }     )
+   
    ;position sprites
    (for ([x (in-range 8)])
      {
@@ -150,8 +164,8 @@
    (create-vec tc-vec-vx-low  0)
    (create-vec tc-vec-vy-low  0)
 
-   (create-vec tc-vec-x-low  20)
-   (create-vec tc-vec-y-low  40)
+   (create-vec tc-vec-x-low  200)
+   (create-vec tc-vec-y-low  80)
 
    lda @angle-change-delay
    sta tc-angle-change-delay
@@ -207,7 +221,7 @@
    jmp loop-
 
 :global-physics
-   (create-fractional-vec vec-temp-low 11)
+   (create-fractional-vec vec-temp-low 12)
    (add-16 tc-vec-vy-low vec-temp-low)
    rts
 

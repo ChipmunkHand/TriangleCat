@@ -44,7 +44,7 @@
      ldx frame-end-offsets+ y
      cpx tc-frame
      beq reset+
-     break
+;     break
      inc tc-frame
      jmp end+
  :reset     

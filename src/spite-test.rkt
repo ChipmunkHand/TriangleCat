@@ -155,7 +155,7 @@
                    ;load sprite pointer value
                    ldx (+ $07f8 index)
                        ;is it on the final frame?
-                       break
+;                       break
                    cpx @(+ base-offset (- (sprite-data-frame-count s) 1))
                    bne skip+
                    ;reset to its first frame

@@ -97,6 +97,8 @@
    scratch-b
    scratch-c
    scratch-d
+   collision-x
+   collision-y
    )
     
 }
