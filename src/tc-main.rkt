@@ -68,7 +68,8 @@
    sta tc-frame
    lda @state-standing
    sta tc-state
-
+   lda @anim-standing
+   sta tc-anim-type
    lda @54
    sta tc-angle-target
    lda @3     
@@ -194,7 +195,7 @@
    ;todo: raster interupts. this'll do for now
 :loop
    lda $d012
-   cmp @$40
+   cmp @$3A
    bne loop-
    inc $d020
    (play-psid acid-disco)
@@ -204,7 +205,7 @@
    jsr state-update:
    jsr global-physics:
    inc $d020
-   jsr collision-detection-new:
+   jsr collision-detection:
    dec $d020
    dec $d020
    dec $d020
@@ -216,13 +217,17 @@
    inc $d020
    jsr programmer-check:   
    jsr render:
-   jsr animate:
+   jsr animate-new:
    dec $d020
    jmp loop-
 
 :global-physics
    (create-fractional-vec vec-temp-low 9)
    (add-16 tc-vec-vy-low vec-temp-low)
+
+   ;todo: impose velocity caps on TC
+
+   
    rts
 
    (graphics-code)

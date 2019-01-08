@@ -38,6 +38,16 @@
   right = 1
   bottom = 2
   left = 3
+
+  anim-standing = 0
+  anim-walking-right = 1
+  anim-walking-left = 2
+  anim-crouching = 3
+  anim-velocity = 4
+  anim-airborne = 5
+  anim-skidding-right = 6
+  anim-skidding-left = 7
+  anim-dying = 8
   
   ; TC state machine states
   state-standing = $0   ;stand,walk,slide
@@ -84,7 +94,8 @@
    tc-vel 
    tc-angle-target 
    tc-anim-delay 
-   tc-frame 
+   tc-frame
+   tc-anim-type
    tc-state
    tc-prev-state
    tc-vec-tempx-high

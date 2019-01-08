@@ -3,58 +3,112 @@
 (provide (all-defined-out))
 
 (require
+ "expression.rkt"
  "global.rkt"
  "maths.rkt"
  "spritemate.rkt")
+
 (define (graphics-code)
   {
 
-     
-:animate
-     ; the job of this is to simply cycle the current TC animation
-     ; and nothing else.
-     lda tc-state
-     cmp tc-prev-state
-     beq cont+
-     ldy tc-state
-     cpy @state-airborne
-     bne next+
-     ldy @5
-     jmp reset+
-  :next     
-     ldy @0
-     jmp reset+
-:cont     
+:animate-new
+     ; looking at the velocties work out what animation should be playing
+
+     ; if a crouching state, then crouching
+     ; else
+     ; +/- Y airborne
+     ; else +/- X over top walking speed, skidding
+     ; else +/- X walking
+
+     ; if the animation is not the one currently playing, then change it
+     ; otherwise continue playing animation.
+
+     ; each animation has a separate frame delay which will need resetting.
+
+    (~if
+      (~or 
+        {lda tc-state
+         cmp @state-crouching}
+        {lda tc-state
+         cmp @state-velocity})
+      {
+        lda @anim-crouching
+ ;       lda tc-anim-type
+        sta tc-temp 
+      }
+      {;else
+       (~if
+        {lda tc-vec-vy-high
+         bne done+
+         lda tc-vec-vy-low
+         :done }
+        { ; vy = 0
+         nop
+         (~if
+          {lda tc-vec-vx-high
+           bne done+
+           lda tc-vec-vx-low
+           :done}
+          { ;vx = 0
+           nop
+          }
+          { ; vx <> 0           
+           lda tc-vec-vx-high
+           bmi neg+
+           lda @anim-walking-right           
+           jmp done+
+           :neg
+           lda @anim-walking-left
+           jmp done+
+           :done
+           sta tc-temp
+          })
+         
+        }
+        { ; vy <> 0
+         lda @anim-airborne
+         sta tc-temp
+        })
+      })
+
+    lda tc-anim-type
+    cmp tc-temp
+    beq update+
+    ldy tc-temp
+    sty tc-anim-type
+    lda frame-anim-speeds+ y
+    sta tc-anim-delay
+    lda frame-start-offsets+ y
+    sta tc-frame
+    sta $07f8
+    rts
+    
+:update
      ldx tc-anim-delay
      beq change+
      dex
      stx tc-anim-delay
-     rts     
- :change
-     ldy tc-state
-     cpy @state-airborne
-     bne next+
-     ldy @5
-     beq done+
-  :next     
-     ldy @0
-  :done
+     rts
+:change
+     ;reset anim speed
+     ldy tc-anim-type
      ldx frame-anim-speeds+ y
      stx tc-anim-delay
+     ;check for final frame
      ldx frame-end-offsets+ y
      cpx tc-frame
      beq reset+
-;     break
+     ;next frame
      inc tc-frame
      jmp end+
- :reset     
+:reset
+     ;first frame
      ldx frame-start-offsets+ y
      stx tc-frame
-  :end
-      ; copy to first sprite
-       ;;todo: this is totally broken now, just display the standing with no anims
+:end
+     ; copy to first sprite
      lda tc-frame
-;     sta $07f8
+     sta $07f8
      rts
 
 
@@ -104,7 +158,7 @@
         (write-value (get-sprite-end s)))
 
 :frame-anim-speeds      
-     (data $30 $4 $4 $4 $4 $1 $4 $1 $4)
+     (data $30 $1 $1 $5 $1 $1 $1 $1 $1)
 
 
    })
