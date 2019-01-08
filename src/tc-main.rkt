@@ -133,7 +133,8 @@
 
 
    (for ([x (in-range 40)])
-     { sta (+ $7C0 x)})
+     {sta (+ $0400 x)
+      sta (+ $07C0 x)})
 
    (for ([x (in-range 24)])
      { sta (+ $0400 (* x 40))
@@ -166,12 +167,15 @@
    (create-vec tc-vec-vy-low  0)
 
    (create-vec tc-vec-x-low  200)
-   (create-vec tc-vec-y-low  80)
+   (create-vec tc-vec-y-low  180
+               )
 
    lda @angle-change-delay
    sta tc-angle-change-delay
    lda @vel-change-delay
    sta tc-vel-change-delay
+
+   
    
    lda @0
    sta $d01b  ; sprites in front of chars
@@ -221,13 +225,13 @@
    dec $d020
    jmp loop-
 
-:global-physics
+   :global-physics
+   
    (create-fractional-vec vec-temp-low 9)
    (add-16 tc-vec-vy-low vec-temp-low)
 
    ;todo: impose velocity caps on TC
 
-   
    rts
 
    (graphics-code)

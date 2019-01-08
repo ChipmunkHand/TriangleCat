@@ -12,32 +12,14 @@
 
 
 (define (collision-detection-code)
-{
-:perform-test
-  (add-16 vec-originx-low tc-vec-vx-low)
-  (add-16 vec-originy-low tc-vec-vy-low)
-  ; test if there is a platform there.
-  ; to do this we can divide by 8 (shift right 3)
-  ; the vectors are stored with 9 biths of precision and a leading
-  ; sign bit.  will need to drop the sign bit, shift in the remainig
-  ; two bits leaving the highest bit in the carry ready to be rotated in
-
-  ; for Y we need to rotate in the 8th bit and drop the sign
-  (vec/8 vec-originy-low)
-  tax 
-  sta scratch-b  ; Y pos
-  lda screen-rows-lo: x
-  sta screen-lo
-  lda screen-rows-hi: x
-  sta screen-hi
-
-  (vec/8 vec-originx-low)
-  sta scratch-a  ; x pos
-  tay
-  lda £ screen-lo y          ; return value at screen pos
-  rts
-
-
+  {
+   ;TODO:
+   ; 2. clamping behaviour for X and Y.
+   ;      will align TC's position with the nearest
+   ;      tile boundary.  
+   ;
+   ; 3. metatadata system for tiles to determine collision effects
+   
    ; try to find a collision from the three points
    (define (move-origin xoff yoff)
      ;pass in the offset co-ords from sprite location 0 0
@@ -67,7 +49,101 @@
      [(_ left)         #'(move-origin 0 12)]
      [(_ top-left)     #'(move-origin 0 0)])
 
+:apply-friction
+   ;supply source vector in vec-temp
+   lda tc-vec-vx-high
+   bmi neg+
+   lda tc-vec-vx-low
+   bne pos+
+   ;zero, exit early
+   rts
+ :neg
+  (add-16 tc-vec-vx-low vec-temp-low)
+  lda tc-vec-vx-high
+  bmi done+
+  (create-vec tc-vec-vx-low 0)
+  rts
+  :pos
+  (sub-16 tc-vec-vx-low vec-temp-low)
+  lda tc-vec-vx-high
+  bpl done+
+  (create-vec tc-vec-vx-low 0)
+  rts
+ :done 
+  rts
+
+:clamp-y
+   lda tc-vec-vy-high
+   bmi neg+
+   lda tc-vec-vy-low
+   bne pos+
+   rts
+ :neg
+   ; TC is going upwards, round 8 at current location
+   ; and set the Y pos to this value + border (easy). Kill velocity.
+   ;for now we deaden vy   
+   (create-vec tc-vec-vy-low 0)
    
+   rts
+  :pos
+   break
+   ;TX going down, find bottom of sprite + 8 then round
+   ;subtract border and sprite height, set.
+   ;dont if already 8 aligned
+   (gen-origin bottom)
+   ;; (create-vec vec-temp-low 8)
+   ;; (add-16 vec-originy-low vec-temp-low)
+   lda vec-originy-high
+   ror
+   lda vec-originy-low
+   ror
+   and @%1110_0000
+   bne cont+
+   rts
+
+   (add-16 vec-originy-low tc-vec-vy-low)
+   
+   :cont
+   
+   ; round to nearest 8
+   lda @0
+   sta vec-originy-low
+   lda vec-originy-high
+   and @%1111_1110
+   sta vec-originy-high
+
+   ;add back the sprite height
+   (create-vec vec-temp-low 37)
+   (add-16 vec-originy-low vec-temp-low)
+   ;replace TC pos
+   (copy-16 tc-vec-y-low vec-originy-low)
+   ;dead vy
+   (create-vec tc-vec-vy-low 0)
+  rts
+
+:perform-test
+  (add-16 vec-originx-low tc-vec-vx-low)
+  (add-16 vec-originy-low tc-vec-vy-low)
+  ; test if there is a platform there.
+  ; to do this we can divide by 8 (shift right 3)
+  ; the vectors are stored with 9 biths of precision and a leading
+  ; sign bit.  will need to drop the sign bit, shift in the remainig
+  ; two bits leaving the highest bit in the carry ready to be rotated in
+
+  ; for Y we need to rotate in the 8th bit and drop the sign
+  (vec/8 vec-originy-low)
+  tax 
+  sta scratch-b  ; Y pos
+  lda screen-rows-lo: x
+  sta screen-lo
+  lda screen-rows-hi: x
+  sta screen-hi
+
+  (vec/8 vec-originx-low)
+  sta scratch-a  ; x pos
+  tay
+  lda £ screen-lo y          ; return value at screen pos
+  rts
 
    
 :collision-detection
@@ -153,12 +229,18 @@
    lda tc-temp
    beq down+
 
+   
+
 ;   (vec/neg tc-vec-vy-low vec-temp-low)
    jmp y-finish:
    :down
-   ;for now we deaden vy
+   ;clamp
    (create-vec tc-vec-vy-low 0)
- 
+;   jsr clamp-y:
+    ;friction
+   (create-fractional-vec vec-temp-low 7)
+   jsr apply-friction:
+  
 
  :y-finish
   (add-16 tc-vec-y-low tc-vec-vy-low)
