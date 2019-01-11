@@ -7,7 +7,6 @@
  "spritemate.rkt")
 (provide state-machine-code)
 
-
 (define-syntax-parser joy-branch
   [(_ #t) #'{bne joy-skip+}] 
   [(_ #f) #'{beq joy-skip+}])
@@ -395,8 +394,6 @@
    (add-16 tc-vec-vy-low vec-temp-low)
    rts
 
-
-
 :change-state ; pass new state in x
      stx tc-state
      ;; lda frame-start-offsets+ x
@@ -405,8 +402,6 @@
      sta tc-anim-delay
      rts
 
-
-   
 :update-jump
    ; add the velocity vector to the
    ; position vector. don't care about two's complement
@@ -458,203 +453,6 @@
    rol $10
    lda $10
    sta $d001
-
-
-   
    rts
-
-
-;; (generate-state-machine
-;;  ([state-standing
-;;    { }
-;;    ([joy-right #t state-walking-right ]
-;;     [joy-left  #t state-walking-left]
-;;     [joy-fire  #t state-crouching
-;;                (activate-target)])]
-               
-;;   [state-walking-right
-;;    {
-;;     ; move sprite right
-;;     lda $d000
-;;     clc
-;;     adc @2
-;;     sta $d000
-;;     bcc skip+
-;;     lda @%00000001
-;;     eor $d010
-;;     sta $d010
-;; :skip    
-;;    }    
-;;    ([joy-left  #t state-walking-left]
-;;     [joy-right #f state-standing])]
-  
-;;   [state-walking-left
-;;    {
-;;     ; move sprite left
-;;     lda $d000
-;;     sec
-;;     sbc @2
-;;     sta $d000
-;;     bcs skip+
-;;     lda @%00000001
-;;     eor $d010
-;;     sta $d010
-;; :skip    
-;;     }
-;;    ([joy-right #t state-walking-right]
-;;     [joy-left  #f state-standing])]
-
-;;   [state-crouching
-;;    {}
-;;    ([joy-down #t state-velocity]
-;;     [joy-left #t state-angle-left
-;;           { lda @0
-;;             sta tc-angle-change-delay } ]
-;;     [joy-right #t state-angle-right
-;;           { lda @0
-;;             sta tc-angle-change-delay }] 
-;;     [joy-fire #f state-standing
-;;                (deactivate-target)])]
-  
-;;   [state-angle-right
-;;    {
-;;      ldx tc-angle-change-delay
-;;      bne skip+
-;;      lda @angle-change-delay
-;;      sta tc-angle-change-delay
-;;      ; increase angle if we can
-;;      ldy tc-angle-target
-;;      cpy @70
-;;      beq joy+
-;;      iny
-;;      sty tc-angle-target
-;;      jsr update-target-
-;;      jmp joy+
-;; :skip
-;;      dex
-;;      stx tc-angle-change-delay
-;; :joy     
-;;    }
-;;    ([joy-down #t state-velocity]
-;;     [joy-left #t state-angle-left
-;;           { lda @0
-;;             sta tc-angle-change-delay }]
-;;     [joy-fire #f state-standing
-;;               (deactivate-target)]
-;;     [joy-left #f state-crouching]
-;;     )]
-
-;;   [state-angle-left
-;;    {
-;;      ldx tc-angle-change-delay
-;;      bne skip+
-;;      lda @angle-change-delay
-;;      sta tc-angle-change-delay
-;;      ; decrease angle if we can
-;;      ldy tc-angle-target
-;;      cpy @38
-;;      beq joy+
-;;      dey
-;;      sty tc-angle-target
-;;      jsr update-target-
-;;      jmp joy+
-;; ;; :reset
-;; ;;      lda @$48
-;; ;;      sta tc-angle-target
-;;      jmp joy+
-;; :skip
-;;     dex
-;;      stx tc-angle-change-delay
-
-     
-;; :joy     
-;;    }
-;;    ([joy-down #t state-velocity]
-;;     [joy-right #t state-angle-right
-;;                { lda @0                     
-;;                  sta tc-angle-change-delay }]
-;;     [joy-fire #f state-standing
-;;               (deactivate-target)]
-;;     [joy-right #f state-crouching])]
-
-;;   [state-velocity
-;;    {
-
-;;     ldx tc-vel-change-delay
-;;     bne skip+
-;;     lda @vel-change-delay
-;;     sta tc-vel-change-delay
-;;     ldx tc-vel
-;;     cpx @5
-;;     beq zero+
-;;     inx
-;;     (data $2c)
-;; :zero    
-;;     ldx @1
-;; :done
-;;     stx tc-vel
-;;     clc
-;;     txa
-;; ;   adc @49
-;;     sta $0404
-;;     clc
-;;     bcc joy+
-;; :skip
-;;    dex
-;;    stx tc-vel-change-delay
-;; :joy
-;;    }
-;;    ([joy-down #f state-jumping    
-;;                  {
-;;                     lda @vel-change-delay
-;;                     sta tc-vel-change-delay
-;;                     lda @0
-;;                     sta tc-falling
-;;                     (deactivate-target)
-;;                     jsr prepare-jump:
-;;                     }]
-;;     [joy-down #f state-crouching])]
-                     
-;;   [state-jumping
-;;    {
-;;      ldx $d001
-;;      cpx @$d1
-;;      bcc cont+
-;;      lda @$d0
-;;      sta $d001
-;;      ldx @state-standing
-;;      jsr change-state:
-;;      rts
-;; :cont
-;;      jsr update-jump:
-;;      ;jumping, allow some sway if headed downwards.
-;;      }
-;;    (;[joy-fire #t state-standing]
-;;     )]
-
-;;   [state-skidding-left
-;;    {}
-;;    ()]
-
-;;   [state-skidding-right
-;;    {}
-;;    ()]
-
-;;   [state-falling-right
-;;    {}
-;;    ()]
-
-;;   [state-falling-left
-;;    {}
-;;    ()]
-
-;;   [state-dying
-;;    {}
-;;    ()]
-  
-;;    ))
-
-
-     
 
    })

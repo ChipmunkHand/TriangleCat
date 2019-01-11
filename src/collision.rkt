@@ -6,10 +6,8 @@
 (require
  threading
  syntax/parse/define
-
  "global.rkt"
  "maths.rkt")
-
 
 (define (collision-detection-code)
   {
@@ -23,8 +21,8 @@
    (define (move-origin xoff yoff)
      ;pass in the offset co-ords from sprite location 0 0
      ;takes into consideration the borders for you.
-     (let ([xoff (- $18 xoff)]
-           [yoff (- $32 yoff)])
+     (let ([xoff (- x-visible xoff)]
+           [yoff (- y-visible yoff)])
        {
          (copy-16 vec-originx-low tc-vec-x-low)
          (copy-16 vec-originy-low tc-vec-y-low)
