@@ -83,11 +83,11 @@
 (define (state-machine-code)
   {
 :state-update
-   lda tc-angle-target
-   sta $0402            ; indicate state machine on screen
-   sta $0400
-   lda tc-state
-   sta $0400
+   ;; lda tc-angle-target
+   ;; sta $0402            ; indicate state machine on screen
+   ;; sta $0400
+   ;; lda tc-state
+   ;; sta $0400
    lda tc-state
    jsr update-target:
    ; first try to update a state based on what we can observe.

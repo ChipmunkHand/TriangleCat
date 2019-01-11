@@ -50,7 +50,8 @@
            lda tc-vec-vx-low
            :done}
           { ;vx = 0
-           nop
+           lda @anim-standing
+           sta tc-temp
           }
           { ; vx <> 0           
            lda tc-vec-vx-high

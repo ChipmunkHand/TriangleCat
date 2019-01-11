@@ -40,23 +40,43 @@
     (λ (_ sprite)
       (begin
         (set-location (sprite-data-start-address sprite))
-        (data (sprite-data-data sprite)))))
-
-   
+        (data (sprite-data-data sprite)))))   
 *= $0801
    ;autostart 163844 ($4000)
    (data $0b $08 $01 $00 $9E $31 $36 $33 $38 $34 $00 $00 $00 $00)          
    (remote-programmer-main)
      
-*= $3000
-   (generate-charset)
+   *= $3000
+   (for ([b (bytes->list  (file->bytes "C:\\Users\\juan\\Documents\\char-test.bin"))])
+     (data b))
+
+   ;(generate-charset)
 
 
 *= $4000
    ; main program    
    (remote-programmer-init)
 
-   (clear-mem $0400 32)
+   (let ([colours (bytes->list (file->bytes "C:\\Users\\juan\\Documents\\char-test-att.bin"))])
+     (for ([x (level-1)]
+           [i (in-naturals)])     
+       {lda @x
+        sta (+ $0400 i)
+        lda @(bitwise-and $f (list-ref colours x))
+        sta (+ $d800 i)}))
+         ;; (case x
+         ;;   [(1) {lda @$e
+         ;;          sta (+ $D800 i)}]
+         ;;   [(2) {lda @$d
+         ;;          sta (+ $D800 i)}]
+         ;;   [(3) {lda @$d
+         ;;          sta (+ $D800 i)}]
+         ;;   [(4) {lda @$d
+         ;;          sta (+ $D800 i)}]
+         ;;   )
+         ;; })
+   
+   ;(clear-mem $0400 0)
    ;enable sprite 1
    lda @%00000001
    sta $d015
@@ -95,52 +115,53 @@
    ;; sta $3807
 
 
-   lda @5
-   sta $690
-   sta $691
-   sta $692
-   sta $693
-   sta $694
-   sta $695
+   ;; lda @3
+   ;; sta $690
+   ;; sta $691
+   ;; sta $692
+   ;; sta $693
+   ;; sta $694
+   ;; sta $695
    
-   sta $540
-   sta $541
-   sta $542
-   sta $543
-   sta $544
-   sta $545   
+   ;; sta $540
+   ;; sta $541
+   ;; sta $542
+   ;; sta $543
+   ;; sta $544
+   ;; sta $545   
 
-   sta $45D
-   sta $45E
-   sta $45F
-   sta $460
-   sta $461
-   sta $462
+   ;; sta $45D
+   ;; sta $45E
+   ;; sta $45F
+   ;; sta $460
+   ;; sta $461
+   ;; sta $462
 
    
    
-   sta $450
-   sta $451
-   sta $452
-   sta $453
+   ;; sta $450
+   ;; sta $451
+   ;; sta $452
+   ;; sta $453
    
-   sta $6A5
-   sta $6A6
-   sta $6A7
-   sta $6A8
-   sta $6A9
-   sta $6AA
+   ;; sta $6A5
+   ;; sta $6A6
+   ;; sta $6A7
+   ;; sta $6A8
+   ;; sta $6A9
+   ;; sta $6AA
 
 
-   (for ([x (in-range 40)])
-     {sta (+ $0400 x)
-      sta (+ $07C0 x)})
+ ;;   (for ([x (in-range 40)])
+;;      {sta (+ $0400 x)
+;;       sta (+ $07C0 x)})
 
-   (for ([x (in-range 24)])
-     { sta (+ $0400 (* x 40))
-       sta (+ $0400 (* x 40) 39)
+;;    (for ([x (in-range 24)])
+;;      { sta (+ $0400 (* x 40))
+;;        sta (+ $0400 (* x 40) 39)
 
-       }     )
+;;        }     )
+;; 
    
    ;position sprites
    (for ([x (in-range 8)])
@@ -160,15 +181,28 @@
 
    lda @$04 ; sprite multicolor 1
    sta $D025
+
+   
    lda @$06 ; sprite multicolor 2
    sta $D026
 
+
+   ;multicolour chars
+   lda $d016
+   ora @$10
+   sta $d016
+
+   lda @3
+   sta $d022 ;mc 1
+   lda @8
+   sta $d023 ;mc 1
+   
+   
    (create-vec tc-vec-vx-low  0)
    (create-vec tc-vec-vy-low  0)
 
-   (create-vec tc-vec-x-low  200)
-   (create-vec tc-vec-y-low  180
-               )
+   (create-vec tc-vec-x-low  50)
+   (create-vec tc-vec-y-low  50   )
 
    lda @angle-change-delay
    sta tc-angle-change-delay
@@ -201,18 +235,18 @@
    lda $d012
    cmp @$3A
    bne loop-
-   inc $d020
+;   inc $d020
    (play-psid acid-disco)
-   inc $d020
+;   inc $d020
    lda tc-state
    sta tc-prev-state
    jsr state-update:
    jsr global-physics:
-   inc $d020
+;   inc $d020
    jsr collision-detection:
-   dec $d020
-   dec $d020
-   dec $d020
+;   dec $d020
+;   dec $d020
+;   dec $d020
    ; wait for the raster to hit the bottom of the screen
 :iloop
    lda $d012
@@ -235,6 +269,7 @@
    rts
 
    (graphics-code)
+   (generate-collision-metadata-code)
    (state-machine-code)
    (collision-detection-code)
    
@@ -268,9 +303,7 @@
 
 
 /= $100
-:tile-meta
-  (data (for/list ([i (in-range 256)]) (lo-byte $FF)))
-
+(generate-collision-meta)
 
 
 })

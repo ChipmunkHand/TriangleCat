@@ -39,6 +39,13 @@
   bottom = 2
   left = 3
 
+  ;metadata
+  x-neg = $80
+  y-neg = $40
+  clamp = $20 
+  kill = $10
+
+  
   anim-standing = 0
   anim-walking-right = 1
   anim-walking-left = 2
@@ -90,7 +97,8 @@
    tc-vel-change-delay 
    tc-angle-change-delay 
    tc-table-frame 
-   tc-temp 
+   tc-temp
+   tc-tile-hit
    tc-vel 
    tc-angle-target 
    tc-anim-delay 

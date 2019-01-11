@@ -71,8 +71,18 @@
   rts
  :done 
   rts
+:clamp-x
+
+   ;temp
+   (create-vec tc-vec-vx-low 0)
+   rts
 
 :clamp-y
+
+   ;temp
+   (create-vec tc-vec-vy-low 0)
+   rts
+   
    lda tc-vec-vy-high
    bmi neg+
    lda tc-vec-vy-low
@@ -86,7 +96,6 @@
    
    rts
   :pos
-   break
    ;TX going down, find bottom of sprite + 8 then round
    ;subtract border and sprite height, set.
    ;dont if already 8 aligned
@@ -159,12 +168,12 @@
    ;unlikely caes of Y being zero, skip   
    jmp x-calculations+
  :y-neg
-   lda @%1
+   lda @2
    bne done+
  :y-pos
    lda @%0000_0000
  :done
-   sta tc-temp   ; 0 is positive (down) 1 is negative (up)
+   sta tc-temp   ; 0 is positive (down, hits top) 2 is negative (up, hits bottom)
    bne up+
    jmp down+
  :up
@@ -175,22 +184,19 @@
    (add-16 vec-originy-low tc-vec-vy-low)
 
    ;collision test
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp y-hit+
 :next
    (gen-origin top-left)
    (add-16 vec-originy-low tc-vec-vy-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp y-hit+
 :next
    (gen-origin top-right)
    (add-16 vec-originy-low tc-vec-vy-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp y-hit+
  :next
@@ -199,8 +205,7 @@
 :down
    (gen-origin bottom)
    (add-16 vec-originy-low tc-vec-vy-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp y-hit+
  
@@ -208,7 +213,6 @@
    (gen-origin bottom-left)
    (add-16 vec-originy-low tc-vec-vy-low)
    jsr perform-test:
-   cmp @$20
    beq next+
    jmp y-hit+
  
@@ -216,8 +220,7 @@
    
    (gen-origin bottom-right)
    (add-16 vec-originy-low tc-vec-vy-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp y-hit+
  
@@ -225,22 +228,60 @@
    jmp y-finish:
 
    :y-hit
+   sta tc-tile-hit
+   ldx tc-temp ; direction
+   lda tc-tile-hit
+   jsr metadata-lookup:
+   sta tc-temp
 
+   ; process metadata flags.
+   and @x-neg
+   beq next+
+;   break
+   (vec/neg tc-vec-vx-low vec-temp-low)
+:next   
    lda tc-temp
-   beq down+
-
-   
-
-;   (vec/neg tc-vec-vy-low vec-temp-low)
-   jmp y-finish:
-   :down
-   ;clamp
-   (create-vec tc-vec-vy-low 0)
-;   jsr clamp-y:
-    ;friction
-   (create-fractional-vec vec-temp-low 7)
+   and @y-neg
+   beq next+
+   (vec/neg tc-vec-vy-low vec-temp-low)
+:next
+   lda tc-temp
+   and @clamp
+   beq next+
+   jsr clamp-y:
+:next
+   lda tc-temp
+   and @%0000_0111   
+   beq next+
+   pha
+;   lda tc-tile-hit
+   ;special vectors.
+   ldx @0
+   jsr vector-lookup:
+   ;first vector, returns high in A, low in Y
+   sta vec-temp-high
+   sty vec-temp-low
+   ;if there is a second vector, it is a max/min
+   ;that should be adhered to  (TODO)
+   ;should probably have bit 9 indicate X or Y (todo)
+   pla
+   ldx @2
+   jsr vector-lookup:
+   sta tc-vec-tempx-low  ; this memory is not being used
+   sty tc-vec-tempx-high
+   bne special+
+   tya
+   beq friction+
+   :special
+   ;TODO: min max thing
+   ;; sta (+ vec-temp-low 1)
+   ;; sty vec-temp-low
+   (add-16 tc-vec-vx-low vec-temp-low)
+   jmp next+
+   :friction
    jsr apply-friction:
-  
+
+:next  
 
  :y-finish
   (add-16 tc-vec-y-low tc-vec-vy-low)
@@ -257,12 +298,13 @@
    ;unlikely caes of Y being zero, skip   
    jmp collision-end+
  :x-neg
-   lda @%1
+   lda @3
    bne done+
  :x-pos
-   lda @%0000_0000
+   lda @1
  :done
-   sta tc-temp   ; 0 is positive (right) 1 is negative (left)
+   sta tc-temp   ; 1 is positive (right) 3 is negative (left)
+   cmp @1
    bne left+
    jmp right+
  :left
@@ -273,22 +315,19 @@
    (add-16 vec-originx-low tc-vec-vx-low)
 
    ;collision test
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next
    (gen-origin top-left)
    (add-16 vec-originx-low tc-vec-vx-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next
    (gen-origin bottom-left)
    (add-16 vec-originx-low tc-vec-vx-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next
@@ -297,36 +336,75 @@
 :right
    (gen-origin right)
    (add-16 vec-originx-low tc-vec-vx-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next
    (gen-origin bottom-right)
    (add-16 vec-originx-low tc-vec-vx-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next   
    (gen-origin top-right)
    (add-16 vec-originx-low tc-vec-vx-low)
-   jsr perform-test:
-   cmp @$20
+   jsr perform-test:   
    beq next+
    jmp x-hit+
 :next
    jmp x-finish:
 
 :x-hit
-   lda tc-temp
-   beq right+
+   sta tc-tile-hit
+   ldx tc-temp
+   jsr metadata-lookup:
+   sta tc-temp
+   ; process metadata flags.
+   and @x-neg
+   beq next+
    (vec/neg tc-vec-vx-low vec-temp-low)
-   jmp x-finish:
-   :right
-   ;for now we deaden vx
-   (create-vec tc-vec-vx-low 0)
+:next   
+   lda tc-temp
+   and @y-neg
+   beq next+
+   (vec/neg tc-vec-vy-low vec-temp-low)
+:next
+   lda tc-temp
+   and @clamp
+   beq next+
+   jsr clamp-x:
+:next
+   lda tc-temp
+   and @%0000_0111
+   beq next+
+   pha
+   ;special vectors.
+   ldx @0
+   jsr vector-lookup:
+   ;first vector, returns high in A, low in Y
+   sta vec-temp-high
+   sty vec-temp-low
+   ;if there is a second vector, it is a max/min
+   ;that should be adhered to  (TODO)
+   pla
+   ldx @2
+   jsr vector-lookup:
+   sta tc-vec-tempx-low  ; this memory is not being used
+   sty tc-vec-tempx-high
+   bne special+
+   tya
+   beq friction+
+   :special
+   ;TODO: min max thing
+   ;; sta (+ vec-temp-low 1)
+   ;; sty vec-temp-low
+   (add-16 tc-vec-vy-low vec-temp-low)
 
+   jmp next+
+   :friction
+   jsr apply-friction:
+
+:next  
  
 
  :x-finish
