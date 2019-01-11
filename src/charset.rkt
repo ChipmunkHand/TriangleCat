@@ -9,12 +9,9 @@
 ;collision metadata format
 ; 8 - negate x
 ; 7 - negate y
-; 6 - clamp (direction context?)
-; 5 - (maybe need clamp x and y)
-; 4 - kill
-; 3 - has friction
-; 2 - has special
-; 1 -
+; 6 - clamp
+; 5 - kill
+; 4 3 2 - 3 bit index of a special vector
 
 ; each tile will need 4 of these, one for each direction.
 
@@ -40,8 +37,6 @@
   ; gives us only 16 custom vectors but it should be enough.
   )
 
-
-
 (define-syntax-parser create-collision-metadata
   [(_ [(flags ...)
        (~optional vec1 #:defaults ([vec1 #'0]))
@@ -60,11 +55,6 @@
                         (create-collision-metadata left-meta)) ...
                         )])
        data)])
-       
-
-
-;(define yy (tile-metadata 0 0 0))      
-;(define xx (create-collision-metadata "test" [x-neg y-neg]))
 
 (define meta-list
   (let* ([gen-fraction

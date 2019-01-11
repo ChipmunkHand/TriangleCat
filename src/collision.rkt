@@ -18,7 +18,6 @@
    ;      will align TC's position with the nearest
    ;      tile boundary.  
    ;
-   ; 3. metatadata system for tiles to determine collision effects
    
    ; try to find a collision from the three points
    (define (move-origin xoff yoff)

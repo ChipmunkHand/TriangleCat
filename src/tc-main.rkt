@@ -104,64 +104,6 @@
    sta $d018
 
    ;we will put sprites at $2000, code starts at $3000
-
-   ;; lda @$ff
-   ;; sta $3801
-   ;; sta $3802
-   ;; sta $3803
-   ;; sta $3804
-   ;; sta $3805
-   ;; sta $3806
-   ;; sta $3807
-
-
-   ;; lda @3
-   ;; sta $690
-   ;; sta $691
-   ;; sta $692
-   ;; sta $693
-   ;; sta $694
-   ;; sta $695
-   
-   ;; sta $540
-   ;; sta $541
-   ;; sta $542
-   ;; sta $543
-   ;; sta $544
-   ;; sta $545   
-
-   ;; sta $45D
-   ;; sta $45E
-   ;; sta $45F
-   ;; sta $460
-   ;; sta $461
-   ;; sta $462
-
-   
-   
-   ;; sta $450
-   ;; sta $451
-   ;; sta $452
-   ;; sta $453
-   
-   ;; sta $6A5
-   ;; sta $6A6
-   ;; sta $6A7
-   ;; sta $6A8
-   ;; sta $6A9
-   ;; sta $6AA
-
-
- ;;   (for ([x (in-range 40)])
-;;      {sta (+ $0400 x)
-;;       sta (+ $07C0 x)})
-
-;;    (for ([x (in-range 24)])
-;;      { sta (+ $0400 (* x 40))
-;;        sta (+ $0400 (* x 40) 39)
-
-;;        }     )
-;; 
    
    ;position sprites
    (for ([x (in-range 8)])
